@@ -1,0 +1,1200 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>第 01 期 · 布隆过滤器：用 1% 的误判，换 99% 的空间</title>
+<meta name="description" content="每周一个计算机小知识 · 第 01 期：从零讲透布隆过滤器 —— 位数组、双哈希、误判率公式、工程实践与项目挑战。" />
+<style>
+  :root{
+    --paper:#f7f6f2;
+    --card:#ffffff;
+    --ink:#14161b;
+    --ink-2:#3d424d;
+    --muted:#767d8a;
+    --line:#e5e2d9;
+    --line-2:#d6d2c6;
+    --accent:#2b4ee6;
+    --accent-soft:#eef1ff;
+    --accent-2:#b45309;
+    --accent-2-soft:#fdf3e3;
+    --ok:#0f766e;
+    --grid:#eceae3;
+    --shadow:0 1px 2px rgba(20,22,27,.04), 0 8px 24px -12px rgba(20,22,27,.12);
+    --serif:"Georgia","Times New Roman","Songti SC","SimSun",serif;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    --mono:"SFMono-Regular",Consolas,"Liberation Mono",Menlo,monospace;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0;background:var(--paper);color:var(--ink);
+    font-family:var(--sans);font-size:16.5px;line-height:1.85;
+    -webkit-font-smoothing:antialiased;
+  }
+  ::selection{background:#dfe5ff}
+  a{color:var(--accent);text-decoration:none;border-bottom:1px solid rgba(43,78,230,.28)}
+  a:hover{border-bottom-color:var(--accent)}
+
+  /* ---------- top bar ---------- */
+  .topbar{
+    position:sticky;top:0;z-index:50;
+    background:rgba(247,246,242,.86);backdrop-filter:saturate(180%) blur(12px);
+    border-bottom:1px solid var(--line);
+  }
+  .topbar-inner{
+    max-width:960px;margin:0 auto;padding:10px 24px;
+    display:flex;align-items:center;gap:22px;
+  }
+  .brand{display:flex;align-items:center;gap:9px;font-weight:700;font-size:14px;letter-spacing:.02em;white-space:nowrap}
+  .brand-dot{width:9px;height:9px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+  .navlinks{display:flex;gap:16px;overflow-x:auto;font-size:13.5px;color:var(--muted);scrollbar-width:none}
+  .navlinks::-webkit-scrollbar{display:none}
+  .navlinks a{color:var(--muted);border:0;white-space:nowrap;padding:2px 0}
+  .navlinks a:hover{color:var(--ink)}
+
+  /* ---------- layout ---------- */
+  .wrap{max-width:820px;margin:0 auto;padding:0 24px}
+  .hero{padding:64px 24px 40px;border-bottom:1px solid var(--line)}
+  .kicker{
+    display:inline-flex;align-items:center;gap:8px;
+    font-size:12px;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--accent);font-weight:700;
+  }
+  .kicker span.num{
+    font-family:var(--mono);background:var(--accent);color:#fff;
+    padding:1px 7px;border-radius:4px;letter-spacing:0;
+  }
+  h1{
+    font-family:var(--serif);font-weight:700;font-size:44px;line-height:1.22;
+    letter-spacing:-.01em;margin:18px 0 14px;
+  }
+  h1 em{font-style:normal;color:var(--accent);}
+  .lede{font-size:18.5px;color:var(--ink-2);max-width:640px;margin:0 0 26px}
+  .meta{
+    display:flex;flex-wrap:wrap;gap:10px 20px;font-size:13px;color:var(--muted);
+    font-family:var(--mono);
+  }
+  .meta b{color:var(--ink-2);font-weight:600}
+
+  section{padding:52px 0;border-bottom:1px solid var(--line)}
+  section:last-of-type{border-bottom:0}
+  .sec-head{display:flex;align-items:baseline;gap:14px;margin-bottom:22px}
+  .sec-num{
+    font-family:var(--mono);font-size:12px;color:var(--accent);
+    border:1px solid rgba(43,78,230,.3);border-radius:4px;padding:1px 6px;
+    flex:none;transform:translateY(-3px);
+  }
+  h2{font-family:var(--serif);font-size:28px;margin:0;letter-spacing:-.005em;line-height:1.3}
+  h3{font-size:16.5px;margin:34px 0 10px;letter-spacing:.01em}
+  p{margin:0 0 18px}
+  strong{font-weight:650}
+  code{
+    font-family:var(--mono);font-size:.875em;background:#efeee8;
+    padding:1.5px 5px;border-radius:4px;color:#252a33;
+  }
+  ul,ol{margin:0 0 18px;padding-left:22px}
+  li{margin:6px 0}
+  li::marker{color:var(--muted)}
+  hr{border:0;border-top:1px solid var(--line);margin:34px 0}
+
+  /* ---------- cards & callouts ---------- */
+  .card{
+    background:var(--card);border:1px solid var(--line);border-radius:14px;
+    padding:22px 24px;box-shadow:var(--shadow);margin:24px 0;
+  }
+  .callout{
+    border-left:3px solid var(--accent);background:var(--accent-soft);
+    padding:16px 20px;border-radius:0 10px 10px 0;margin:24px 0;font-size:15.5px;color:#1e2a4a;
+  }
+  .callout.warn{border-left-color:var(--accent-2);background:var(--accent-2-soft);color:#5a3a10}
+  .callout p:last-child{margin-bottom:0}
+  .callout .tag{
+    display:block;font-family:var(--mono);font-size:11px;letter-spacing:.12em;
+    text-transform:uppercase;opacity:.7;margin-bottom:4px;
+  }
+
+  blockquote{
+    margin:26px 0;padding:0 0 0 20px;border-left:2px solid var(--line-2);
+    font-family:var(--serif);font-size:18px;color:var(--ink-2);font-style:italic;
+  }
+
+  /* ---------- table ---------- */
+  .tbl-scroll{overflow-x:auto;margin:24px 0}
+  table{border-collapse:collapse;width:100%;font-size:14.5px}
+  th,td{text-align:left;padding:10px 14px;border-bottom:1px solid var(--line)}
+  th{font-size:12px;letter-spacing:.06em;color:var(--muted);font-weight:600;background:#fbfaf7}
+  td.num,th.num{font-family:var(--mono);text-align:right}
+  tbody tr:hover{background:#fbfaf7}
+
+  /* ---------- formula ---------- */
+  .formula{
+    font-family:var(--mono);background:#1b1e25;color:#e9e6dd;
+    border-radius:12px;padding:18px 20px;margin:20px 0;font-size:14.5px;
+    overflow-x:auto;line-height:2;white-space:pre-wrap;
+  }
+  .formula .cm{color:#8b93a5}
+  .formula .hl{color:#ffd48a}
+
+  /* ---------- demo ---------- */
+  .demo{
+    background:var(--card);border:1px solid var(--line);border-radius:16px;
+    box-shadow:var(--shadow);overflow:hidden;margin:26px 0;
+  }
+  .demo-top{
+    display:flex;align-items:center;justify-content:space-between;gap:12px;
+    padding:12px 18px;border-bottom:1px solid var(--line);background:#fbfaf7;
+    font-size:12px;font-family:var(--mono);color:var(--muted);letter-spacing:.06em;
+  }
+  .dotrow{display:flex;gap:5px}
+  .dotrow i{width:8px;height:8px;border-radius:50%;background:var(--line-2);display:block}
+  .demo-body{padding:20px}
+  .ctrl-row{display:flex;flex-wrap:wrap;gap:14px;margin-bottom:16px}
+  .ctrl{flex:1 1 150px;min-width:140px}
+  .ctrl label{display:block;font-size:11.5px;letter-spacing:.08em;color:var(--muted);margin-bottom:5px}
+  .ctrl label b{font-family:var(--mono);color:var(--accent);font-size:12.5px;letter-spacing:0}
+  input[type=range]{width:100%;accent-color:var(--accent);height:18px}
+  input[type=text]{
+    width:100%;padding:9px 11px;border:1px solid var(--line-2);border-radius:8px;
+    font-family:var(--mono);font-size:13.5px;background:#fff;color:var(--ink);
+  }
+  input[type=text]:focus{outline:2px solid rgba(43,78,230,.25);border-color:var(--accent)}
+  .btn{
+    appearance:none;border:1px solid var(--ink);background:var(--ink);color:#fff;
+    padding:9px 16px;border-radius:8px;font-size:13.5px;font-weight:600;cursor:pointer;
+    font-family:var(--sans);transition:.15s;white-space:nowrap;
+  }
+  .btn:hover{transform:translateY(-1px);box-shadow:0 4px 12px -4px rgba(20,22,27,.4)}
+  .btn.ghost{background:#fff;color:var(--ink);border-color:var(--line-2)}
+  .btn.ghost:hover{border-color:var(--ink);box-shadow:none}
+  .btn.mini{padding:6px 11px;font-size:12.5px}
+  .btn:disabled{opacity:.45;cursor:not-allowed;transform:none;box-shadow:none}
+
+  .bitgrid{
+    display:flex;flex-wrap:wrap;gap:3px;padding:14px;margin:6px 0 16px;
+    background:#fbfaf7;border:1px solid var(--line);border-radius:10px;
+    min-height:60px;align-content:flex-start;
+  }
+  .bit{
+    border-radius:2px;background:#fff;border:1px solid #dfdcd2;
+    transition:background .25s, border-color .25s, box-shadow .25s;position:relative;
+  }
+  .bit.on{background:var(--accent);border-color:var(--accent)}
+  .bit.mark{box-shadow:0 0 0 2px rgba(180,83,9,.85);border-color:var(--accent-2);z-index:1}
+  .bit.fresh{animation:pop .45s ease-out}
+  @keyframes pop{0%{transform:scale(.4);opacity:.4}60%{transform:scale(1.25)}100%{transform:scale(1)}}
+
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:10px;margin-bottom:16px}
+  .stat{background:#fbfaf7;border:1px solid var(--line);border-radius:9px;padding:9px 12px}
+  .stat .k{font-size:11px;letter-spacing:.06em;color:var(--muted);display:block}
+  .stat .v{font-family:var(--mono);font-size:16px;font-weight:600;letter-spacing:-.02em}
+  .stat .v small{font-size:11px;color:var(--muted);font-weight:400}
+
+  .verdict{
+    border-radius:10px;padding:12px 15px;font-size:14.5px;margin-bottom:16px;
+    border:1px dashed var(--line-2);background:#fbfaf7;color:var(--ink-2);
+  }
+  .verdict.no{border-color:rgba(15,118,110,.45);background:#eef8f6;color:#0b4f4a}
+  .verdict.maybe{border-color:rgba(180,83,9,.4);background:var(--accent-2-soft);color:#5a3a10}
+  .verdict b{font-weight:700}
+  .verdict .pos{font-family:var(--mono);font-size:12.5px;opacity:.85}
+
+  .log{max-height:132px;overflow:auto;font-family:var(--mono);font-size:12.5px;color:var(--muted);border-top:1px dashed var(--line);padding-top:10px}
+  .log div{padding:2px 0;border-bottom:1px solid #f4f2ec}
+  .log .l-add{color:var(--ok)}
+  .log .l-q{color:var(--accent)}
+
+  .chart-box{background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px 10px 6px;margin:10px 0 0}
+  .chart-cap{font-size:12px;color:var(--muted);text-align:center;padding:2px 0 8px;font-family:var(--mono)}
+
+  /* ---------- challenge ---------- */
+  .levels{display:grid;gap:14px;margin:24px 0}
+  .level{
+    background:var(--card);border:1px solid var(--line);border-left:4px solid var(--accent);
+    border-radius:0 12px 12px 0;padding:18px 22px;
+  }
+  .level.l2{border-left-color:#7c3aed}
+  .level.l3{border-left-color:var(--accent-2)}
+  .level .lv{font-family:var(--mono);font-size:11.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+  .level h4{margin:4px 0 8px;font-size:17px;font-family:var(--serif)}
+  .level ul{margin-bottom:0;font-size:15px}
+  .accept{background:#fbfaf7;border:1px solid var(--line);border-radius:12px;padding:18px 22px;margin:22px 0}
+  .accept h4{margin:0 0 10px;font-size:14px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+  .accept ul{margin:0;font-size:15px}
+
+  /* ---------- quiz ---------- */
+  details{
+    border:1px solid var(--line);border-radius:10px;padding:12px 16px;margin:10px 0;
+    background:var(--card);
+  }
+  details summary{cursor:pointer;font-weight:600;font-size:15px;list-style:none;display:flex;gap:10px;align-items:flex-start}
+  details summary::-webkit-details-marker{display:none}
+  details summary::before{content:"Q";font-family:var(--mono);font-size:11px;color:var(--accent);border:1px solid rgba(43,78,230,.3);border-radius:4px;padding:0 5px;flex:none;transform:translateY(3px)}
+  details[open] summary{margin-bottom:8px;padding-bottom:8px;border-bottom:1px dashed var(--line)}
+  details .ans{font-size:15px;color:var(--ink-2);padding-left:2px}
+  details .ans p:last-child{margin-bottom:0}
+
+  /* ---------- footer ---------- */
+  footer{padding:44px 24px 70px;font-size:13.5px;color:var(--muted)}
+  .foot-row{display:flex;flex-wrap:wrap;justify-content:space-between;gap:16px;align-items:center}
+  .next{
+    display:inline-flex;align-items:center;gap:10px;background:var(--card);
+    border:1px solid var(--line);border-radius:12px;padding:14px 18px;
+    box-shadow:var(--shadow);color:var(--ink);border-bottom:1px solid var(--line);
+  }
+  .next:hover{box-shadow:0 10px 28px -14px rgba(20,22,27,.25)}
+
+  @media (max-width:640px){
+    body{font-size:16px}
+    h1{font-size:32px}
+    .hero{padding:44px 20px 32px}
+    section{padding:40px 0}
+    h2{font-size:23px}
+    .navlinks{display:none}
+    .demo-body{padding:14px}
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-inner">
+    <div class="brand"><span class="brand-dot"></span>每周一个计算机小知识</div>
+    <nav class="navlinks">
+      <a href="#problem">问题</a>
+      <a href="#idea">直觉</a>
+      <a href="#structure">结构</a>
+      <a href="#process">演示</a>
+      <a href="#math">数学</a>
+      <a href="#practice">工程</a>
+      <a href="#limits">局限</a>
+      <a href="#challenge">挑战</a>
+    </nav>
+  </div>
+</div>
+
+<header class="hero wrap">
+  <div class="kicker"><span class="num">01</span> Week 01 · Data Structures</div>
+  <h1>布隆过滤器：用 <em>1% 的误判</em>，换掉 99% 的内存</h1>
+  <p class="lede">
+    它不存元素，只存"痕迹"。它说"不在"，那一定不在；它说"在"，你有 1% 的概率被骗。
+    就凭这一个不对称的承诺，它撑起了 Chrome 的恶意网址拦截、RocksDB 的读放大优化和无数缓存系统的第一道防线。
+  </p>
+  <div class="meta">
+    <span>📖 阅读 <b>约 18 分钟</b></span>
+    <span>🧩 项目挑战 <b>3 个难度</b></span>
+    <span>🔧 参考实现 <b>Python · 零依赖</b></span>
+  </div>
+</header>
+
+<main class="wrap">
+
+<!-- ============ 0 问题 ============ -->
+<section id="problem">
+  <div class="sec-head"><span class="sec-num">00</span><h2>先看一个真实的困境</h2></div>
+
+  <p>
+    你要给一个爬虫做 URL 去重。待抓队列里有 <strong>1 亿条</strong> URL，机器上只给你 <strong>100 MB</strong> 内存做"见过没有"的判断。
+    直觉做法是一个哈希集合：
+  </p>
+
+  <div class="formula"><span class="cm"># 直觉做法</span>
+seen = set()
+seen.add("https://example.com/path?q=1")
+if url in seen: skip()
+
+<span class="cm"># 账单</span>
+1 亿条 × 平均 60 字节 URL ≈ <span class="hl">6 GB</span> 原始字符串
+再叠加 Python 对象头 / 哈希表负载因子 ≈ <span class="hl">10 GB+</span>
+预算 = 0.1 GB        <span class="cm">→ 差了两个数量级，方案直接出局</span>
+  </div>
+
+  <p>
+    这里其实藏着一个被忽略的假设：我们默认"判断是否见过"必须<strong>准确地</strong>回答。
+    但去重场景里，答错的代价并不对称：把一条没抓过的 URL 误判成"抓过了"而跳过，你只是少抓了一个页面；
+    把抓过的再抓一次，你只是浪费一次请求。两种错误都不致命。
+  </p>
+
+  <p>
+    一旦允许"偶尔出错"，问题的性质就变了：从<strong>精确成员查询</strong>变成<strong>近似成员查询</strong>，
+    而近似可以便宜到离谱 —— 上面那 10 GB 的活，布隆过滤器用 <strong>约 120 MB</strong> 就干完了（错判率 1%）。
+  </p>
+
+  <blockquote>空间不会凭空出现。你付出的代价不是内存，而是"确定性的方向"。</blockquote>
+</section>
+
+<!-- ============ 1 直觉 ============ -->
+<section id="idea">
+  <div class="sec-head"><span class="sec-num">01</span><h2>核心直觉：不记住内容，只记住痕迹</h2></div>
+
+  <p>
+    想象一间漆黑的仓库，地上有 <code>m</code> 个开关，每个开关只有"开"和"关"两种状态。
+    你要登记新来的货物，但仓库不允许你存放货物本身，只允许你拨动开关。
+  </p>
+
+  <p>
+    于是你定了一套规则：每件货物进门，用 <code>k</code> 台不同的"特征提取仪"各算出一个开关编号，
+    把这 <code>k</code> 个开关全部拨到"开"。以后有人问"这件货登记过吗"，你重新算一遍那 <code>k</code> 个编号，去看开关：
+  </p>
+
+  <ul>
+    <li>只要<strong>有一个是关的</strong> → 这件货绝对没登记过。<span style="color:var(--ok);font-weight:600">这个判断 100% 可信。</span></li>
+    <li>如果<strong>全是开的</strong> → 可能是它开的，也可能是别的货物顺手把它拨开了。<span style="color:var(--accent-2);font-weight:600">只能说"可能在"。</span></li>
+  </ul>
+
+  <p>
+    这就是布隆过滤器的全部。它的精妙之处在于<strong>放弃存储元素，只存储元素留下的痕迹</strong>，
+    而痕迹是可以被多件货物共享的 —— 共享带来了极致的空间效率，也带来了误判。
+  </p>
+
+  <div class="callout">
+    <span class="tag">一句话定义</span>
+    <p>布隆过滤器是一个位数组 + k 个哈希函数构成的<strong>概率型集合</strong>：查询返回"一定不在"或"可能在"，永不返回假阴性，允许可控的假阳性。</p>
+  </div>
+</section>
+
+<!-- ============ 2 结构 ============ -->
+<section id="structure">
+  <div class="sec-head"><span class="sec-num">02</span><h2>数据结构：只有两样东西</h2></div>
+
+  <p>整个结构只有两个参数，没有别的：</p>
+
+  <div class="tbl-scroll">
+  <table>
+    <thead><tr><th>符号</th><th>含义</th><th>典型值</th></tr></thead>
+    <tbody>
+      <tr><td><code>m</code></td><td>位数组长度（bit 数）</td><td>958,506（为 10 万元素、1% 误判设计）</td></tr>
+      <tr><td><code>k</code></td><td>哈希函数个数</td><td>7</td></tr>
+      <tr><td><code>n</code></td><td>已插入元素个数（运行时状态）</td><td>≤ 设计容量</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <p>
+    注意 <code>m</code> 的单位是 <strong>比特</strong>，不是字节。这是它能省下三个数量级的根本原因：
+    存一个元素平均只花 <code>m/n ≈ 9.6</code> 个比特，而一个 URL 字符串要 480 个比特。
+  </p>
+
+  <h3>插入与查询的完整流程</h3>
+
+  <svg viewBox="0 0 720 300" width="100%" role="img" aria-label="布隆过滤器插入流程示意图" style="margin:8px 0 6px">
+    <defs>
+      <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+        <path d="M0,0 L10,5 L0,10 z" fill="#9aa0ac"/>
+      </marker>
+    </defs>
+    <!-- item -->
+    <rect x="8" y="112" width="150" height="76" rx="10" fill="#eef1ff" stroke="#2b4ee6" stroke-width="1.4"/>
+    <text x="83" y="140" text-anchor="middle" font-family="monospace" font-size="12.5" fill="#2b4ee6">alice@ex.com</text>
+    <text x="83" y="162" text-anchor="middle" font-family="sans-serif" font-size="11" fill="#767d8a">待插入元素 x</text>
+
+    <!-- hashes -->
+    <g font-family="monospace" font-size="11.5">
+      <rect x="205" y="66" width="112" height="34" rx="7" fill="#fff" stroke="#d6d2c6"/>
+      <text x="261" y="88" text-anchor="middle" fill="#3d424d">h₁(x) % m</text>
+      <rect x="205" y="132" width="112" height="34" rx="7" fill="#fff" stroke="#d6d2c6"/>
+      <text x="261" y="154" text-anchor="middle" fill="#3d424d">h₂(x) % m</text>
+      <rect x="205" y="198" width="112" height="34" rx="7" fill="#fff" stroke="#d6d2c6"/>
+      <text x="261" y="220" text-anchor="middle" fill="#3d424d">h₃(x) % m</text>
+    </g>
+    <g stroke="#9aa0ac" stroke-width="1.3" fill="none" marker-end="url(#ar)">
+      <path d="M158 136 C182 136 182 84 203 84"/>
+      <path d="M158 150 L203 149"/>
+      <path d="M158 164 C182 164 182 214 203 214"/>
+    </g>
+    <text x="180" y="270" font-family="sans-serif" font-size="11" fill="#767d8a">同一元素，k 台哈希</text>
+
+    <!-- bit array -->
+    <g stroke="#d6d2c6" fill="#fff">
+      <rect x="372" y="60" width="26" height="26" rx="3"/>
+      <rect x="402" y="60" width="26" height="26" rx="3"/>
+      <rect x="432" y="60" width="26" height="26" rx="3"/>
+      <rect x="462" y="60" width="26" height="26" rx="3"/>
+      <rect x="492" y="60" width="26" height="26" rx="3"/>
+      <rect x="522" y="60" width="26" height="26" rx="3"/>
+      <rect x="552" y="60" width="26" height="26" rx="3"/>
+      <rect x="582" y="60" width="26" height="26" rx="3"/>
+      <rect x="612" y="60" width="26" height="26" rx="3"/>
+      <rect x="642" y="60" width="26" height="26" rx="3"/>
+    </g>
+    <g fill="#2b4ee6">
+      <rect x="432" y="60" width="26" height="26" rx="3"/>
+      <rect x="582" y="60" width="26" height="26" rx="3"/>
+    </g>
+    <!-- second row bits -->
+    <g stroke="#d6d2c6" fill="#fff">
+      <rect x="372" y="112" width="26" height="26" rx="3"/>
+      <rect x="402" y="112" width="26" height="26" rx="3"/>
+      <rect x="432" y="112" width="26" height="26" rx="3"/>
+      <rect x="462" y="112" width="26" height="26" rx="3"/>
+      <rect x="492" y="112" width="26" height="26" rx="3"/>
+      <rect x="522" y="112" width="26" height="26" rx="3"/>
+      <rect x="552" y="112" width="26" height="26" rx="3"/>
+      <rect x="582" y="112" width="26" height="26" rx="3"/>
+      <rect x="612" y="112" width="26" height="26" rx="3"/>
+      <rect x="642" y="112" width="26" height="26" rx="3"/>
+    </g>
+    <g fill="#2b4ee6"><rect x="492" y="112" width="26" height="26" rx="3"/></g>
+    <text x="512" y="52" text-anchor="middle" font-family="monospace" font-size="10.5" fill="#767d8a">位数组 m 位，初始全 0</text>
+    <text x="445" y="158" font-family="monospace" font-size="11" fill="#2b4ee6">42</text>
+    <text x="505" y="158" font-family="monospace" font-size="11" fill="#2b4ee6">88</text>
+    <text x="595" y="158" font-family="monospace" font-size="11" fill="#2b4ee6">133</text>
+    <text x="512" y="196" text-anchor="middle" font-family="sans-serif" font-size="11" fill="#767d8a">三个位置被置 1（其余位可能属于别的元素）</text>
+    <text x="512" y="222" text-anchor="middle" font-family="monospace" font-size="11.5" fill="#b45309">查询时这 3 位全为 1 → "可能在"</text>
+    <text x="512" y="244" text-anchor="middle" font-family="monospace" font-size="11.5" fill="#0f766e">任一位为 0 → "一定不在"</text>
+  </svg>
+
+  <p>
+    查询时只需要重算 <code>h₁…h_k</code> 并逐位检查，<strong>没有任何字符串比较，没有指针追逐，全部是数组随机访问</strong>。
+    这也是它比哈希表快的原因：一次查询只有 <code>k</code> 次内存访问，且命中率极高。
+  </p>
+</section>
+
+<!-- ============ 3 交互演示 ============ -->
+<section id="process">
+  <div class="sec-head"><span class="sec-num">03</span><h2>动手试：亲手把它塞满</h2></div>
+
+  <p>
+    下面是一个真正在运行的布隆过滤器。默认 <code>m=192</code>、<code>k=5</code>，故意给得很小，
+    这样几十次插入后你能<strong>肉眼看到</strong>误判是怎么发生的 —— 而真实系统里 m 大得多，只是把这个问题推迟到 1% 而已。
+  </p>
+
+  <div class="demo">
+    <div class="demo-top">
+      <div class="dotrow"><i></i><i></i><i></i></div>
+      <span>BLOOM FILTER · LIVE</span>
+    </div>
+    <div class="demo-body">
+      <div class="ctrl-row">
+        <div class="ctrl">
+          <label>位数组 m = <b id="mVal">192</b></label>
+          <input type="range" id="mRange" min="32" max="512" step="8" value="192" />
+        </div>
+        <div class="ctrl">
+          <label>哈希函数 k = <b id="kVal">5</b></label>
+          <input type="range" id="kRange" min="1" max="8" step="1" value="5" />
+        </div>
+      </div>
+
+      <div class="ctrl-row">
+        <div class="ctrl" style="flex:2 1 240px">
+          <label>元素</label>
+          <input type="text" id="itemInput" placeholder="输入任意字符串，回车或点插入" value="alice@example.com" />
+        </div>
+        <div class="ctrl" style="flex:0 0 auto;display:flex;gap:8px;align-items:flex-end">
+          <button class="btn" id="btnAdd">插入</button>
+          <button class="btn ghost" id="btnQuery">查询</button>
+        </div>
+      </div>
+
+      <div class="ctrl-row" style="margin-bottom:12px">
+        <div class="ctrl" style="flex:none">
+          <button class="btn ghost mini" id="btnRandom">随机插入 20 个</button>
+        </div>
+        <div class="ctrl" style="flex:none">
+          <button class="btn ghost mini" id="btnMeasure">实测误判率（5000 次探测）</button>
+        </div>
+        <div class="ctrl" style="flex:none">
+          <button class="btn ghost mini" id="btnReset">重置</button>
+        </div>
+      </div>
+
+      <div class="bitgrid" id="bitgrid" aria-label="位数组可视化"></div>
+
+      <div class="verdict" id="verdict">
+        位数组空空如也。插入几个元素，看看蓝色格子是怎么被点亮的。
+      </div>
+
+      <div class="stats">
+        <div class="stat"><span class="k">插入元素 n</span><span class="v" id="sCount">0</span></div>
+        <div class="stat"><span class="k">置位比特</span><span class="v" id="sBits">0</span></div>
+        <div class="stat"><span class="k">填充率</span><span class="v" id="sFill">0%</span></div>
+        <div class="stat"><span class="k">理论误判率</span><span class="v" id="sP">0.00%</span></div>
+        <div class="stat"><span class="k">实测误判率</span><span class="v" id="sMeas">—</span></div>
+        <div class="stat"><span class="k">内存</span><span class="v" id="sMem">24 B</span></div>
+      </div>
+
+      <div class="chart-box">
+        <svg id="chart" viewBox="0 0 440 200" width="100%" role="img" aria-label="误判率随 k 变化曲线"></svg>
+        <div class="chart-cap" id="chartCap">固定 m / n，误判率随 k 先降后升 —— 曲线最低点即最优 k</div>
+      </div>
+
+      <div class="log" id="log"></div>
+    </div>
+  </div>
+
+  <div class="callout">
+    <span class="tag">建议的玩法</span>
+    <p>
+      ① 把 m 拖到 64、k 调到 2，狂点"随机插入 20 个"，看误判率怎么飙到 40%。<br />
+      ② 保持 n 不变，只调 k：你会看到误判率先降后升，最优值就在 <code>k ≈ (m/n)·0.693</code>。<br />
+      ③ 点"实测误判率"，对比它和理论值 —— 两者应该同量级，这验证了公式的可信度。
+    </p>
+  </div>
+</section>
+
+<!-- ============ 4 单向错误 ============ -->
+<section id="asymmetry">
+  <div class="sec-head"><span class="sec-num">04</span><h2>为什么假阴性不可能发生</h2></div>
+
+  <p>
+    这是面试里最常被追问的一点，也是它安全性的根基。证明只需要一句话：
+  </p>
+
+  <div class="callout">
+    <span class="tag">单调性论证</span>
+    <p>位数组的每一位只会从 <code>0 → 1</code>，永远不会从 <code>1 → 0</code>（没有删除操作）。<br />
+    元素 x 插入时把它命中的 <code>k</code> 位全部置 1；此后这些位永远是 1。<br />
+    因此再次查询 x 时，那 <code>k</code> 位必然都是 1 → 必然返回"可能在"。<strong>假阴性在结构上被排除了。</strong></p>
+  </div>
+
+  <p>
+    反过来，假阳性之所以可能，是因为<strong>别的元素可能恰好把 x 的 k 个位置全占了</strong>。
+    随着插入元素变多，位数组越填越满，这种"撞车"的概率单调上升 —— 这就是为什么布隆过滤器必须<strong>在创建时确定容量</strong>。
+  </p>
+
+  <div class="callout warn">
+    <span class="tag">工程含义</span>
+    <p>如果实际插入量超过设计容量 2 倍，1% 的误判率会恶化到 30% 以上，过滤器基本报废。
+    生产环境要么留足 1.5~2 倍余量，要么使用<strong>可扩展布隆过滤器</strong>（Scalable Bloom Filter：满了就新建一层，容量翻倍、误判率乘 0.5）。</p>
+  </div>
+
+  <p>
+    还有一个隐藏性质：布隆过滤器<strong>不能删除元素</strong>。因为一个位可能被多个元素共享，
+    你把某位清 0，会顺手"抹掉"其他元素的记录，从而<strong>制造出假阴性</strong> —— 唯一不能破坏的承诺被破坏了。
+    想支持删除，需要升级成计数布隆过滤器（每位用 4 bit 计数器代替 1 bit），代价是内存变 4 倍。
+  </p>
+</section>
+
+<!-- ============ 5 数学 ============ -->
+<section id="math">
+  <div class="sec-head"><span class="sec-num">05</span><h2>把误判率算出来：三行推导</h2></div>
+
+  <p>
+    这一节是本期真正的"知识增量"。推导不难，但每一步都值得自己动手写一遍。
+    假设哈希函数理想均匀（每个位置被选中的概率都是 <code>1/m</code>，彼此独立）。
+  </p>
+
+  <h3>第 1 步：插入一个元素后，某一位还是 0 的概率</h3>
+  <p>一次哈希不会选中这一位的概率是 <code>1 − 1/m</code>；<code>k</code> 次哈希都没选中：</p>
+  <div class="formula">P(仍为 0) = (1 − 1/m)<sup>k</sup> ≈ e<sup>−k/m</sup>   <span class="cm">// 用 (1−1/m)^m → 1/e</span></div>
+
+  <h3>第 2 步：插入 n 个元素后，某一位还是 0 的概率</h3>
+  <p>n 个元素一共做了 <code>kn</code> 次哈希：</p>
+  <div class="formula">P(仍为 0) = (1 − 1/m)<sup>kn</sup> ≈ e<sup>−kn/m</sup>
+P(为 1)   = 1 − e<sup>−kn/m</sup></div>
+
+  <h3>第 3 步：查询一个不存在的元素，k 位恰好全为 1 的概率</h3>
+  <div class="formula"><span class="hl">p ≈ (1 − e<sup>−kn/m</sup>)<sup>k</sup></span>   <span class="cm">// 这就是误判率公式</span></div>
+
+  <p>
+    这个公式是布隆过滤器的"物理定律"。它告诉你三件事：<code>n</code> 越大 p 越大；
+    <code>m</code> 越大 p 越小；而 <code>k</code> 有一个最优值 —— 因为 k 增大既让"每位更满"（坏），
+    又让"需要全部命中"更难（好），两者在某个点平衡。
+  </p>
+
+  <h3>最优 k 与所需空间</h3>
+  <p>对 p 关于 k 求导令其为零，得到：</p>
+  <div class="formula">k<sub>opt</sub> = (m/n) · ln2 ≈ 0.693 · (m/n)
+
+代入原式：p<sub>min</sub> = (1/2)<sup>k</sup> = 0.6185<sup>m/n</sup>
+
+反解出每元素所需比特数：
+<span class="hl">m/n = −ln(p) / (ln2)²  ≈  1.44 · log₂(1/p)</span></div>
+
+  <p>于是有这张"背下来就能用"的参数表：</p>
+
+  <div class="tbl-scroll">
+  <table>
+    <thead>
+      <tr><th>目标误判率 p</th><th class="num">每元素比特 m/n</th><th class="num">最优 k</th><th>100 万元素实际内存</th><th>哈希表（对照）</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>10%</td><td class="num">4.79</td><td class="num">3</td><td>≈ 0.6 MB</td><td rowspan="4" style="color:var(--muted)">≈ 100 MB 起<br/><small>且随负载因子线性增长</small></td></tr>
+      <tr><td>1%</td><td class="num">9.59</td><td class="num">7</td><td>≈ 1.2 MB</td></tr>
+      <tr><td>0.1%</td><td class="num">14.38</td><td class="num">10</td><td>≈ 1.8 MB</td></tr>
+      <tr><td>0.01%</td><td class="num">19.17</td><td class="num">13</td><td>≈ 2.4 MB</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <p>
+    注意最后一行到第一行的跨度：把误判率从 10% 压到 0.01%，内存只涨了 4 倍。
+    这是<strong>对数级</strong>的性价比 —— 每多付 1.44 bit/元素，误判率降一个数量级。
+    这也是为什么布隆过滤器常常被"过度配置"：反正便宜。
+  </p>
+
+  <div class="callout">
+    <span class="tag">一个常被忽略的细节</span>
+    <p>
+      公式里的 k 是<strong>哈希函数个数</strong>，实现里通常用双哈希技巧
+      <code>gᵢ(x) = (h₁(x) + i·h₂(x)) mod m</code> 模拟 k 个独立哈希（Kirsch–Mitzenmacher 定理），
+      只需算两个哈希就能得到 k 个位置，速度提升 k/2 倍。本页演示与参考实现都用这个方法。
+    </p>
+  </div>
+</section>
+
+<!-- ============ 6 工程 ============ -->
+<section id="practice">
+  <div class="sec-head"><span class="sec-num">06</span><h2>它在哪些地方真正跑着</h2></div>
+
+  <p>布隆过滤器不是课本玩具。以下是几个你每天都在用的部署：</p>
+
+  <div class="tbl-scroll">
+  <table>
+    <thead><tr><th>系统</th><th>用法</th><th>为什么值得</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><strong>Chrome / Safe Browsing</strong></td>
+        <td>本地存一份恶意 URL 前缀的布隆过滤器，命中后才向 Google 发完整查询</td>
+        <td>避免每次导航都联网校验，同时不泄露你访问了哪些正常网站</td>
+      </tr>
+      <tr>
+        <td><strong>RocksDB / LevelDB</strong></td>
+        <td>每个 SST 文件附带一个过滤器；查 key 前先问它"这个文件里可能有吗"</td>
+        <td>省掉绝大多数无意义的磁盘 IO，直接缓解 LSM-tree 的读放大</td>
+      </tr>
+      <tr>
+        <td><strong>HBase / Cassandra</strong></td>
+        <td>每个 HFile 一个过滤器，RegionServer 先过滤再读盘</td>
+        <td>随机读延迟从"扫多个文件"降到"只读一个"</td>
+      </tr>
+      <tr>
+        <td><strong>Redis</strong></td>
+        <td><code>SETBIT</code>/<code>GETBIT</code> 手搓，或用 RedisBloom 模块的 <code>BF.ADD</code></td>
+        <td>缓存穿透防护：拦住查不存在的 key 的请求，别让它们打到数据库</td>
+      </tr>
+      <tr>
+        <td><strong>CDN / 爬虫</strong></td>
+        <td>URL 去重、已缓存资源判定</td>
+        <td>亿级规模下内存是硬约束，错判 1% 完全可以接受</td>
+      </tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h3>手写一个最朴素的版本，只要 30 行</h3>
+  <p>理解它最好的方式是先写一个"能跑但很慢"的版本，再逐步优化：</p>
+
+  <div class="formula"><span class="cm"># 教学版：用 set 存位置，强调逻辑而非性能</span>
+<span class="hl">import</span> hashlib, math
+<span class="hl">class</span> Bloom:
+    <span class="hl">def</span> __init__(self, n, p=0.01):
+        self.m = math.ceil(-n * math.log(p) / math.log(2)**2)
+        self.k = round(self.m / n * math.log(2))
+        self.bits = <span class="hl">set</span>()
+
+    <span class="hl">def</span> _pos(self, x):
+        h1 = int(hashlib.md5(x.encode()).hexdigest(), 16)
+        h2 = int(hashlib.sha1(x.encode()).hexdigest(), 16)
+        <span class="hl">return</span> [(h1 + i*h2) % self.m <span class="hl">for</span> i <span class="hl">in</span> range(self.k)]
+
+    <span class="hl">def</span> add(self, x):
+        self.bits.update(self._pos(x))
+
+    <span class="hl">def</span> __contains__(self, x):
+        <span class="hl">return</span> all(i <span class="hl">in</span> self.bits <span class="hl">for</span> i <span class="hl">in</span> self._pos(x))</div>
+
+  <p>
+    完整版（<code>week-01/bloom.py</code>）在这个骨架上做了四件事：用 <code>bytearray</code> 按位存储（内存降到 1/8 以下）、
+    用 blake2b 双哈希（进程间稳定）、跟踪置位计数以实时估算误判率、以及用填充率反推元素个数。
+  </p>
+
+  <h3>上生产前必须知道的坑</h3>
+  <ul>
+    <li><strong>别用语言内置 hash()</strong>。Python 的 <code>hash()</code> 对字符串每个进程加了随机盐，重启后过滤器全废。要用 MD5/SHA/blake2 这类稳定哈希。</li>
+    <li><strong>k 不是越大越好</strong>。k 超过最优值后误判率反而上升，而且查询变慢 k 倍。按公式算。</li>
+    <li><strong>容量必须事先估</strong>。m 一旦定死改不了。宁可多留 50% 余量。</li>
+    <li><strong>分布式场景要小心</strong>。多个节点各持一份会不一致；共享一份要考虑并发写位数组的原子性（Redis <code>SETBIT</code> 是原子的，这也是它适合做布隆的原因）。</li>
+    <li><strong>它不能枚举、不能计数</strong>。需要"取出所有元素"或"精确计数"就得换结构。</li>
+  </ul>
+</section>
+
+<!-- ============ 7 局限与替代 ============ -->
+<section id="limits">
+  <div class="sec-head"><span class="sec-num">07</span><h2>什么时候不该用它</h2></div>
+
+  <p>一个诚实的知识介绍，必须说清边界。以下情况请换方案：</p>
+
+  <div class="tbl-scroll">
+  <table>
+    <thead><tr><th>需求</th><th>该用什么</th><th>相对布隆的代价</th></tr></thead>
+    <tbody>
+      <tr><td>需要删除元素</td><td>计数布隆过滤器 / 布谷鸟过滤器</td><td>4× 内存 / 略高但更可预测的误判</td></tr>
+      <tr><td>需要零误判</td><td>哈希表、B 树、Roaring Bitmap</td><td>内存高一个数量级以上</td></tr>
+      <tr><td>需要取出元素</td><td>任何真正的集合结构</td><td>布隆过滤器从设计上就不可枚举</td></tr>
+      <tr><td>容量会持续增长且无法预估</td><td>Scalable Bloom Filter（分层）</td><td>层数越多误判率越高，需按 0.5 递减分配</td></tr>
+      <tr><td>误判率要压到 0.001% 以下还要省空间</td><td>Ribbon Filter / XOR Filter</td><td>实现复杂，但比布隆再省 30% 空间</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <p>
+    顺带一提演进脉络：<strong>Bloom（1970）→ Counting Bloom（删）→ Cuckoo Filter（可删、更省、查更快）→ Quotient / Ribbon Filter（RocksDB 现在默认用它）</strong>。
+    这条线本身就是一部"用更聪明的编码榨干每一个比特"的历史，值得单独做一期。
+  </p>
+
+  <h3>五道自测题</h3>
+  <p style="color:var(--muted);font-size:15px">先自己回答，再点开对照。答不上来说明还没读懂，回去看对应小节。</p>
+
+  <details>
+    <summary>为什么布隆过滤器不可能出现假阴性？</summary>
+    <div class="ans"><p>因为位只会 0→1 单向变化。元素插入时把自己命中的 k 位全部置 1，之后没有任何操作会把它们清 0，所以再次查询必然全部命中。假阴性只可能来自"删除操作"或"比特位被并发覆盖"这类破坏单调性的实现 bug。</p></div>
+  </details>
+
+  <details>
+    <summary>100 万元素、要求 0.1% 误判率，需要多少内存和几个哈希函数？</summary>
+    <div class="ans"><p>由表可得 m/n ≈ 14.38 bit，k = 10。总空间 = 100 万 × 14.38 bit ≈ 14.38 Mbit ≈ <strong>1.8 MB</strong>。对照：存 100 万个 20 字节的字符串至少 20 MB，实际含哈希表开销通常是 60~100 MB。省下约 40 倍。</p></div>
+  </details>
+
+  <details>
+    <summary>我把 k 从 7 调到 14（m、n 不变），误判率会降低吗？</summary>
+    <div class="ans"><p>不会，反而升高。k 增大使每个元素点亮更多位，位数组更快变满（P(位为1) 上升），而"k 位全为 1"这个条件虽然更严，但前者的效果占优。当 k 超过 (m/n)·ln2 后，误判率就单调上升了。公式 p=(1−e^(−kn/m))^k 对 k 求导可以严格证明这一点。</p></div>
+  </details>
+
+  <details>
+    <summary>为什么实现里常用"双哈希"而不是真的写 7 个哈希函数？</summary>
+    <div class="ans"><p>因为 Kirsch–Mitzenmacher 证明了：用两个独立哈希 h₁、h₂ 构造 gᵢ = (h₁ + i·h₂) mod m，其渐近误判率与 k 个真正独立的哈希函数相同。这样每次查询只需算 2 次哈希而不是 k 次，CPU 开销大幅下降，且代码更短。</p></div>
+  </details>
+
+  <details>
+    <summary>缓存穿透防护里，布隆过滤器应该放在哪一侧？为什么不能直接缓存空结果？</summary>
+    <div class="ans"><p>放在缓存前面（请求先过过滤器，未命中直接返回）。「缓存空值」也能防穿透，但攻击者可以用大量<strong>互不相同</strong>的随机 key 打进来，每个都产生一条空值缓存，把缓存本身撑爆（内存攻击）。布隆过滤器对任意多个不存在的 key 只占固定内存，这正是它不可替代的地方。</p></div>
+  </details>
+</section>
+
+<!-- ============ 8 挑战 ============ -->
+<section id="challenge">
+  <div class="sec-head"><span class="sec-num">08</span><h2>本周项目挑战</h2></div>
+
+  <p>
+    看懂 ≠ 会做。下面的挑战按难度递进，<strong>至少完成 Lv1</strong> 才算真正掌握。
+    仓库里已有 <code>week-01/bloom.py</code> 和 <code>test_bloom.py</code> 作为起点 —— 但强烈建议先合上它们自己写一遍。
+  </p>
+
+  <div class="levels">
+    <div class="level">
+      <div class="lv">Lv 1 · 基础 · 约 2 小时</div>
+      <h4>从零实现 + 用数据验证公式</h4>
+      <ul>
+        <li>不用任何第三方库，实现 <code>BloomFilter(n, p)</code>，支持 <code>add</code> / <code>in</code>，内部用 <code>bytearray</code> 按位存储。</li>
+        <li>写一个基准脚本：固定 m/n = 10，把 k 从 1 扫到 15，每个 k 用 10 万个随机串实测误判率。</li>
+        <li>把实测曲线和理论曲线 <code>(1−e^(−kn/m))^k</code> 画在同一张图上（matplotlib 或纯 SVG 都行）。</li>
+        <li>输出一张表：p 目标 ∈ {10%, 1%, 0.1%} 时的实际内存、k、实测误判率。</li>
+      </ul>
+    </div>
+    <div class="level l2">
+      <div class="lv">Lv 2 · 进阶 · 约 4 小时</div>
+      <h4>让它变成一个能用的工具</h4>
+      <ul>
+        <li>支持序列化：<code>save(path)</code> / <code>load(path)</code>，格式自定义（建议带 magic + 版本号 + 参数头）。</li>
+        <li>CLI 子命令：<code>init --n 1000000 --p 0.01</code>、<code>add</code>、<code>check</code>、<code>stats</code>、<code>bench</code>。</li>
+        <li>实现 <code>estimated_count()</code>（由填充率反推 n），并验证误差 &lt; 2%。</li>
+        <li>加上 <code>--shard 8</code>：把一个过滤器拆成 8 个独立分片，对比误判率与单片的差异（提示：分片会略微升高误判率，为什么？）。</li>
+      </ul>
+    </div>
+    <div class="level l3">
+      <div class="lv">Lv 3 · 挑战 · 约 1 天</div>
+      <h4>做一个可删除的版本，并打赢哈希表</h4>
+      <ul>
+        <li>实现计数布隆过滤器（每位 4 bit 计数器，饱和到 15 不回绕），支持 <code>remove</code>，并证明删除后不产生假阴性。</li>
+        <li>或者更进一步：实现布谷鸟过滤器（Cuckoo Filter），支持删除且空间更省。</li>
+        <li>写一份对比报告：在 n = 100 万、p = 1% 下，比较「Python set / 计数布隆 / 布谷鸟」的<strong>内存、插入吞吐、查询延迟、误判率</strong>四项指标，用真实数字说话。</li>
+        <li>Bonus：给 <code>week-01/bloom.py</code> 提一个 PR，加上你实现的 <code>CountingBloomFilter</code> 及对应测试。</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="accept">
+    <h4>验收标准（提交前自查）</h4>
+    <ul>
+      <li>✅ 插入 10 万个元素后，逐个查询<strong>零假阴性</strong>（这条不过，其余都无意义）。</li>
+      <li>✅ 实测误判率落在理论值的 0.5× ~ 2× 区间内。</li>
+      <li>✅ 内存占用 ≈ <code>n × m/n / 8</code> 字节，误差不超过 5%。</li>
+      <li>✅ 有可复现的基准脚本，跑一条命令就能出全部数字。</li>
+      <li>✅ README 里写清你踩到的坑（这比代码本身更有价值）。</li>
+    </ul>
+  </div>
+
+  <p>
+    提交方式：fork 仓库 → 在 <code>week-01/submissions/你的GitHub用户名/</code> 下放代码 → 开 Pull Request。
+    PR 描述里贴一张你画的误判率曲线图，我会看。
+  </p>
+</section>
+
+<!-- ============ 9 小结 ============ -->
+<section id="takeaway">
+  <div class="sec-head"><span class="sec-num">09</span><h2>带走三句话</h2></div>
+
+  <ol>
+    <li><strong>布隆过滤器交易的是确定性，不是精度。</strong>它把"可能错"的方向固定成单向 —— 只会误报"在"，绝不误报"不在"。这种不对称让它在工程上极其安全。</li>
+    <li><strong>空间效率来自共享。</strong>m 个比特记录 n 个元素，靠的是碰撞。碰撞是 bug 也是 feature，关键看你能否给碰撞定价（1% 误判是否可接受）。</li>
+    <li><strong>公式比代码重要。</strong><code>m/n = −ln(p)/(ln2)²</code> 这一行决定了整个系统的容量规划，写错参数比写错循环危险得多。</li>
+  </ol>
+
+  <div class="callout">
+    <span class="tag">下期预告</span>
+    <p>Week 02 候选：<strong>一致性哈希</strong>（为什么 Redis Cluster 扩容时只搬 1/N 的数据）、<strong>CRDT</strong>（多人同时编辑为什么不冲突）、<strong>布谷鸟过滤器</strong>。<br />想学哪个，开个 Issue 投票。</p>
+  </div>
+</section>
+
+</main>
+
+<footer class="wrap">
+  <div class="foot-row">
+    <div>
+      <div style="color:var(--ink);font-weight:600;margin-bottom:4px">每周一个计算机小知识 · Week 01</div>
+      <div>布隆过滤器 · 讲义 + 交互演示 + 参考实现</div>
+    </div>
+    <a class="next" href="https://github.com/kinghihido/cs-weekly" target="_blank" rel="noopener">
+      <span>在 GitHub 上查看源码与挑战</span><span style="color:var(--accent)">→</span>
+    </a>
+  </div>
+  <div style="margin-top:26px;padding-top:18px;border-top:1px solid var(--line);font-size:12.5px">
+    本站内容可自由转载，署名即可 · 所有交互演示均在浏览器本地运行，不上传任何数据
+  </div>
+</footer>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ---------------- state ---------------- */
+  var S = { m: 192, k: 5, bits: new Set(), items: [], measured: null, lastPos: [] };
+
+  var el = function(id){ return document.getElementById(id); };
+  var grid = el("bitgrid"), verdict = el("verdict"), logBox = el("log");
+
+  /* ---------------- hashing: double hashing ---------------- */
+  function hash32(str, seed){
+    var h = (seed ^ 0x811c9dc5) >>> 0;
+    for (var i = 0; i < str.length; i++){
+      h ^= str.charCodeAt(i);
+      h = Math.imul(h, 0x01000193) >>> 0;
+      h ^= h >>> 13;
+    }
+    h = Math.imul(h ^ (h >>> 16), 0x85ebca6b) >>> 0;
+    h = Math.imul(h ^ (h >>> 13), 0xc2b2ae35) >>> 0;
+    return (h ^ (h >>> 16)) >>> 0;
+  }
+  function positions(key, m, k){
+    var h1 = hash32(key, 0x9747b28c);
+    var h2 = (hash32(key, 0x1b873593) | 1) >>> 0;
+    var out = [], base = h1 % m;
+    for (var i = 0; i < k; i++){
+      out.push(((base + i * (h2 % m)) % m + m) % m);
+    }
+    return out;
+  }
+
+  /* ---------------- rendering ---------------- */
+  function cellSize(){
+    if (S.m <= 96) return 20;
+    if (S.m <= 192) return 15;
+    if (S.m <= 320) return 12;
+    return 9;
+  }
+
+  function buildGrid(){
+    var size = cellSize();
+    grid.innerHTML = "";
+    var frag = document.createDocumentFragment();
+    for (var i = 0; i < S.m; i++){
+      var d = document.createElement("div");
+      d.className = "bit" + (S.bits.has(i) ? " on" : "");
+      d.style.width = size + "px";
+      d.style.height = size + "px";
+      d.dataset.i = i;
+      d.title = "bit " + i;
+      frag.appendChild(d);
+    }
+    grid.appendChild(frag);
+    paintMarks();
+  }
+
+  function paintMarks(){
+    var cells = grid.children;
+    for (var i = 0; i < cells.length; i++) cells[i].classList.remove("mark");
+    S.lastPos.forEach(function(p){
+      if (cells[p]) cells[p].classList.add("mark");
+    });
+  }
+
+  function refreshBits(animatePositions){
+    var cells = grid.children;
+    for (var i = 0; i < cells.length; i++){
+      var on = S.bits.has(i);
+      cells[i].classList.toggle("on", on);
+    }
+    if (animatePositions){
+      animatePositions.forEach(function(p){
+        var c = cells[p];
+        if (!c) return;
+        c.classList.remove("fresh");
+        void c.offsetWidth;
+        c.classList.add("fresh");
+      });
+    }
+    paintMarks();
+  }
+
+  function theoreticalP(){
+    var n = S.items.length;
+    if (n === 0) return 0;
+    return Math.pow(1 - Math.exp(-S.k * n / S.m), S.k);
+  }
+
+  function fmtPct(v, digits){
+    if (v === 0) return "0";
+    var pct = v * 100;
+    if (pct >= 10) return pct.toFixed(digits === undefined ? 1 : digits) + "%";
+    if (pct >= 0.01) return pct.toFixed(2) + "%";
+    return pct.toExponential(1) + "%";
+  }
+
+  function renderStats(){
+    var n = S.items.length;
+    el("sCount").textContent = n;
+    el("sBits").textContent = S.bits.size;
+    el("sFill").textContent = (S.bits.size / S.m * 100).toFixed(1) + "%";
+    el("sP").textContent = fmtPct(theoreticalP());
+    el("sMem").innerHTML = Math.ceil(S.m / 8) + " <small>B</small>";
+    if (S.measured === null){
+      el("sMeas").textContent = "—";
+    } else {
+      el("sMeas").innerHTML = fmtPct(S.measured) + " <small>@" + S.measuredN.toLocaleString() + "</small>";
+    }
+  }
+
+  function say(html, kind, pos){
+    verdict.className = "verdict" + (kind ? " " + kind : "");
+    var posHtml = (pos && pos.length)
+      ? '<div class="pos">命中位置 → [' + pos.join(", ") + "]</div>" : "";
+    verdict.innerHTML = html + posHtml;
+  }
+
+  function log(kind, text){
+    var d = document.createElement("div");
+    d.className = kind;
+    d.textContent = text;
+    logBox.insertBefore(d, logBox.firstChild);
+    while (logBox.children.length > 40) logBox.removeChild(logBox.lastChild);
+  }
+
+  function renderChart(){
+    var n = Math.max(S.items.length, 1);
+    var W = 440, H = 200, padL = 46, padR = 14, padT = 14, padB = 32;
+    var ks = [], ps = [];
+    for (var k = 1; k <= 14; k++){
+      ks.push(k);
+      ps.push(Math.pow(1 - Math.exp(-k * n / S.m), k));
+    }
+    var maxP = Math.max.apply(null, ps);
+    if (maxP <= 0) maxP = 1e-12;
+    maxP = Math.min(maxP, 1);
+    var x = function(k){ return padL + (k - 1) / 13 * (W - padL - padR); };
+    var y = function(p){ return H - padB - (p / maxP) * (H - padT - padB); };
+
+    var fun = function(v){
+      if (v === 0) return "0";
+      if (v >= 0.1) return (v * 100).toFixed(0) + "%";
+      if (v >= 0.0001) return (v * 100).toFixed(2) + "%";
+      return v.toExponential(0).replace("e", "e");
+    };
+    var s = "";
+    // grid
+    for (var g = 0; g <= 4; g++){
+      var gy = padT + g * (H - padT - padB) / 4;
+      s += '<line x1="' + padL + '" y1="' + gy + '" x2="' + (W - padR) + '" y2="' + gy +
+           '" stroke="#efedE6" stroke-width="1"/>';
+      var val = maxP * (1 - g / 4);
+      s += '<text x="' + (padL - 7) + '" y="' + (gy + 3.5) + '" text-anchor="end" font-family="monospace" font-size="9" fill="#9aa0ac">' +
+           fun(val) + "</text>";
+    }
+    // axes
+    s += '<line x1="' + padL + '" y1="' + (H - padB) + '" x2="' + (W - padR) + '" y2="' + (H - padB) + '" stroke="#d6d2c6"/>';
+    s += '<line x1="' + padL + '" y1="' + padT + '" x2="' + padL + '" y2="' + (H - padB) + '" stroke="#d6d2c6"/>';
+    // x labels
+    for (var i = 0; i < ks.length; i += 1){
+      if (ks[i] % 2 === 1 || ks[i] === 14){
+        s += '<text x="' + x(ks[i]) + '" y="' + (H - padB + 14) + '" text-anchor="middle" font-family="monospace" font-size="9" fill="#9aa0ac">' + ks[i] + "</text>";
+      }
+    }
+    s += '<text x="' + ((W + padL) / 2) + '" y="' + (H - 4) + '" text-anchor="middle" font-family="monospace" font-size="9.5" fill="#767d8a">k（哈希函数个数）</text>';
+
+    // area + line
+    var dLine = "";
+    for (var j = 0; j < ks.length; j++){
+      dLine += (j === 0 ? "M" : "L") + x(ks[j]).toFixed(1) + "," + y(ps[j]).toFixed(1) + " ";
+    }
+    s += '<path d="' + dLine + '" fill="none" stroke="#2b4ee6" stroke-width="2" stroke-linejoin="round"/>';
+    s += '<path d="' + dLine + "L" + x(14) + "," + (H - padB) + " L" + x(1) + "," + (H - padB) +
+         ' Z" fill="rgba(43,78,230,.07)"/>';
+
+    // optimal k
+    var koptRaw = Math.round(S.m / n * Math.LN2);
+    var kopt = koptRaw;
+    if (kopt < 1) kopt = 1;
+    var koptVisible = koptRaw >= 1 && koptRaw <= 14;
+    if (kopt > 14) kopt = 14;
+    var pOpt = ps[kopt - 1];
+    if (koptVisible){
+      s += '<circle cx="' + x(kopt) + '" cy="' + y(pOpt) + '" r="4" fill="#b45309" stroke="#fff" stroke-width="1.5"/>';
+      s += '<text x="' + (x(kopt) + 8) + '" y="' + (y(pOpt) - 7) + '" font-family="monospace" font-size="9.5" fill="#b45309">k*= ' + kopt + "</text>";
+    } else if (koptRaw > 14){
+      s += '<text x="' + (W - padR) + '" y="' + (padT + 10) + '" text-anchor="end" font-family="monospace" font-size="9" fill="#b45309">k*≈' + koptRaw + "（超出量程）</text>";
+    }
+
+    // current k marker
+    if (S.k >= 1 && S.k <= 14){
+      var pc = ps[S.k - 1];
+      s += '<circle cx="' + x(S.k) + '" cy="' + y(pc) + '" r="3.2" fill="#2b4ee6"/>';
+      s += '<line x1="' + x(S.k) + '" y1="' + y(pc) + '" x2="' + x(S.k) + '" y2="' + (H - padB) +
+           '" stroke="#2b4ee6" stroke-dasharray="2 3" stroke-width="1" opacity=".55"/>';
+    }
+
+    el("chart").innerHTML = s;
+    el("chartCap").textContent = "m=" + S.m + " · n=" + S.items.length + " · 当前 k=" + S.k +
+      "，理论误判率 " + fmtPct(theoreticalP()) + "；最优 k*" + (koptVisible ? "=" : "≈") + koptRaw +
+      "（p=" + fmtPct(Math.pow(1 - Math.exp(-koptRaw * n / S.m), koptRaw)) + "）";
+  }
+
+  /* ---------------- actions ---------------- */
+  function addItem(key){
+    if (!key) return;
+    var pos = positions(key, S.m, S.k);
+    var changed = 0;
+    pos.forEach(function(p){ if (!S.bits.has(p)){ S.bits.add(p); changed++; } });
+    S.items.push(key);
+    S.lastPos = pos;
+    S.measured = null;
+    refreshBits(pos);
+    renderStats(); renderChart();
+    say("<b>已插入</b> <code>" + escapeHtml(key) + "</code>：k=" + S.k + " 个位置被置 1，其中新点亮 <b>" + changed + "</b> 位。", "", pos);
+    log("l-add", "ADD  " + key + "  → 新增 " + changed + "/" + S.k + " 位");
+  }
+
+  function queryItem(key){
+    if (!key) return;
+    var pos = positions(key, S.m, S.k);
+    var hit = pos.filter(function(p){ return S.bits.has(p); });
+    var maybe = hit.length === pos.length;
+    S.lastPos = pos;
+    paintMarks();
+    if (maybe){
+      say("<b>可能在集合中。</b>k 个位置全是 1 —— 但这 k 位也可能是别的元素点亮的，这就是<b>假阳性</b>的来源。", "maybe", pos);
+      log("l-q", "QUERY " + key + " → 可能在");
+    } else {
+      say("<b>一定不在集合中。</b>有 " + (pos.length - hit.length) + " 个位置是 0，不可能属于本集合。这个结论永远可信。", "no", pos);
+      log("l-q", "QUERY " + key + " → 一定不在");
+    }
+  }
+
+  function measure(){
+    if (S.items.length === 0){
+      say("先插入一些元素再测误判率。", "");
+      return;
+    }
+    var trials = 5000, hits = 0;
+    for (var t = 0; t < trials; t++){
+      var probe = "__probe_" + Math.random().toString(36).slice(2, 10) + "_" + t;
+      var pos = positions(probe, S.m, S.k);
+      var all = true;
+      for (var i = 0; i < pos.length; i++){
+        if (!S.bits.has(pos[i])){ all = false; break; }
+      }
+      if (all) hits++;
+    }
+    S.measured = hits / trials;
+    S.measuredN = trials;
+    renderStats();
+    say("用 " + trials.toLocaleString() + " 个随机串实测：<b>" + hits + "</b> 次被判为「在」，" +
+        "实测误判率 <b>" + fmtPct(S.measured) + "</b>，理论值 <b>" + fmtPct(theoreticalP()) + "</b>。",
+        hits / trials > 0.15 ? "maybe" : "");
+    log("l-q", "BENCH " + trials + " probes → " + fmtPct(S.measured));
+  }
+
+  var words = ["alice","bob","carol","dave","erin","frank","grace","heidi","ivan","judy",
+    "kv","laura","mallory","niaj","olivia","peggy","rupert","sybil","trent","victor",
+    "walter","wendy","xavier","yuki","zoe","http://a.io","http://b.io","user:1","user:2","user:3"];
+
+  function randomAdd(count){
+    for (var i = 0; i < count; i++){
+      var w = words[Math.floor(Math.random() * words.length)] + "-" + Math.floor(Math.random() * 900 + 100);
+      addItem(w);
+    }
+  }
+
+  function reset(){
+    S.bits = new Set(); S.items = []; S.measured = null; S.lastPos = [];
+    buildGrid(); renderStats(); renderChart();
+    say("位数组空空如也。插入几个元素，看看蓝色格子是怎么被点亮的。", "");
+    logBox.innerHTML = "";
+  }
+
+  function escapeHtml(s){
+    return String(s).replace(/[&<>"']/g, function(c){
+      return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];
+    });
+  }
+
+  /* ---------------- wiring ---------------- */
+  el("mRange").addEventListener("input", function(e){
+    S.m = parseInt(e.target.value, 10);
+    el("mVal").textContent = S.m;
+    S.bits = new Set();
+    S.lastPos = [];
+    // 重建：把已有元素按新参数重新插入，保持语义一致
+    var items = S.items.slice();
+    S.items = [];
+    S.measured = null;
+    buildGrid();
+    items.forEach(function(it){ addItem(it); });
+    renderStats(); renderChart();
+    if (!items.length) say("参数已变更，位数组已清空。", "");
+  });
+
+  el("kRange").addEventListener("input", function(e){
+    S.k = parseInt(e.target.value, 10);
+    el("kVal").textContent = S.k;
+    S.bits = new Set();
+    S.lastPos = [];
+    var items = S.items.slice();
+    S.items = [];
+    S.measured = null;
+    buildGrid();
+    items.forEach(function(it){ addItem(it); });
+    renderStats(); renderChart();
+    if (!items.length) say("参数已变更，位数组已清空。", "");
+  });
+
+  el("btnAdd").addEventListener("click", function(){
+    addItem(el("itemInput").value.trim());
+  });
+  el("btnQuery").addEventListener("click", function(){
+    queryItem(el("itemInput").value.trim());
+  });
+  el("itemInput").addEventListener("keydown", function(e){
+    if (e.key === "Enter"){ addItem(e.target.value.trim()); }
+  });
+  el("btnRandom").addEventListener("click", function(){ randomAdd(20); });
+  el("btnMeasure").addEventListener("click", measure);
+  el("btnReset").addEventListener("click", reset);
+
+  /* ---------------- init ---------------- */
+  buildGrid();
+  var seed = ["alice","bob","carol","dave","erin","frank","grace","heidi",
+              "ivan","judy","mallory","niaj","olivia","peggy","rupert","sybil",
+              "trent","victor","wendy","yuki"];
+  seed.forEach(function(name){ addItem(name + "@example.com"); });
+  renderStats();
+  renderChart();
+  logBox.innerHTML = "";
+  log("l-q", "SEED 20 items · m=" + S.m + " · k=" + S.k);
+  say("默认已插入 20 个邮箱（橙色框是最近一次操作点亮的位）。" +
+      "现在输入一个没插入过的字符串点「查询」，你会看到它被判为<b>一定不在</b>；" +
+      "继续插入直到位数组变满，假阳性就会开始出现。", "");
+})();
+</script>
+</body>
+</html>
