@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>第 01 期 · 你写的代码，电脑是怎么跑起来的</title>
+<meta name="description" content="每周一个计算机小知识 · 第 01 期（爱好者版）：CPU、内存、硬盘如何分工，一行 Python 代码从键盘到屏幕的完整旅程，以及看懂任务管理器。" />
+<style>
+  :root{
+    --paper:#f7f6f2;
+    --card:#ffffff;
+    --ink:#14161b;
+    --ink-2:#3d424d;
+    --muted:#767d8a;
+    --line:#e5e2d9;
+    --line-2:#d6d2c6;
+    --accent:#2b4ee6;
+    --accent-soft:#eef1ff;
+    --accent-2:#b45309;
+    --accent-2-soft:#fdf3e3;
+    --ok:#0f766e;
+    --shadow:0 1px 2px rgba(20,22,27,.04), 0 8px 24px -12px rgba(20,22,27,.12);
+    --serif:"Georgia","Times New Roman","Songti SC","SimSun",serif;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    --mono:"SFMono-Regular",Consolas,"Liberation Mono",Menlo,monospace;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0;background:var(--paper);color:var(--ink);
+    font-family:var(--sans);font-size:16.5px;line-height:1.85;
+    -webkit-font-smoothing:antialiased;
+  }
+  ::selection{background:#dfe5ff}
+  a{color:var(--accent);text-decoration:none;border-bottom:1px solid rgba(43,78,230,.28)}
+  a:hover{border-bottom-color:var(--accent)}
+
+  .topbar{
+    position:sticky;top:0;z-index:50;
+    background:rgba(247,246,242,.86);backdrop-filter:saturate(180%) blur(12px);
+    border-bottom:1px solid var(--line);
+  }
+  .topbar-inner{
+    max-width:960px;margin:0 auto;padding:10px 24px;
+    display:flex;align-items:center;gap:22px;
+  }
+  .brand{display:flex;align-items:center;gap:9px;font-weight:700;font-size:14px;letter-spacing:.02em;white-space:nowrap}
+  .brand-dot{width:9px;height:9px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+  .navlinks{display:flex;gap:16px;overflow-x:auto;font-size:13.5px;color:var(--muted);scrollbar-width:none}
+  .navlinks::-webkit-scrollbar{display:none}
+  .navlinks a{color:var(--muted);border:0;white-space:nowrap;padding:2px 0}
+  .navlinks a:hover{color:var(--ink)}
+
+  .wrap{max-width:820px;margin:0 auto;padding:0 24px}
+  .hero{padding:64px 24px 40px;border-bottom:1px solid var(--line)}
+  .kicker{
+    display:inline-flex;align-items:center;gap:8px;
+    font-size:12px;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--accent);font-weight:700;
+  }
+  .kicker span.num{
+    font-family:var(--mono);background:var(--accent);color:#fff;
+    padding:1px 7px;border-radius:4px;letter-spacing:0;
+  }
+  h1{
+    font-family:var(--serif);font-weight:700;font-size:42px;line-height:1.25;
+    letter-spacing:-.01em;margin:18px 0 14px;
+  }
+  h1 em{font-style:normal;color:var(--accent);}
+  .lede{font-size:18.5px;color:var(--ink-2);max-width:660px;margin:0 0 26px}
+  .meta{
+    display:flex;flex-wrap:wrap;gap:10px 20px;font-size:13px;color:var(--muted);
+    font-family:var(--mono);
+  }
+  .meta b{color:var(--ink-2);font-weight:600}
+
+  section{padding:52px 0;border-bottom:1px solid var(--line)}
+  section:last-of-type{border-bottom:0}
+  .sec-head{display:flex;align-items:baseline;gap:14px;margin-bottom:22px}
+  .sec-num{
+    font-family:var(--mono);font-size:12px;color:var(--accent);
+    border:1px solid rgba(43,78,230,.3);border-radius:4px;padding:1px 6px;
+    flex:none;transform:translateY(-3px);
+  }
+  h2{font-family:var(--serif);font-size:28px;margin:0;letter-spacing:-.005em;line-height:1.3}
+  h3{font-size:16.5px;margin:34px 0 10px;letter-spacing:.01em}
+  p{margin:0 0 18px}
+  strong{font-weight:650}
+  code{
+    font-family:var(--mono);font-size:.875em;background:#efeee8;
+    padding:1.5px 5px;border-radius:4px;color:#252a33;
+  }
+  ul,ol{margin:0 0 18px;padding-left:22px}
+  li{margin:7px 0}
+  li::marker{color:var(--muted)}
+
+  .card{
+    background:var(--card);border:1px solid var(--line);border-radius:14px;
+    padding:22px 24px;box-shadow:var(--shadow);margin:24px 0;
+  }
+  .callout{
+    border-left:3px solid var(--accent);background:var(--accent-soft);
+    padding:16px 20px;border-radius:0 10px 10px 0;margin:24px 0;font-size:15.5px;color:#1e2a4a;
+  }
+  .callout.warn{border-left-color:var(--accent-2);background:var(--accent-2-soft);color:#5a3a10}
+  .callout p:last-child{margin-bottom:0}
+  .callout .tag{
+    display:block;font-family:var(--mono);font-size:11px;letter-spacing:.12em;
+    text-transform:uppercase;opacity:.7;margin-bottom:4px;
+  }
+  blockquote{
+    margin:26px 0;padding:0 0 0 20px;border-left:2px solid var(--line-2);
+    font-family:var(--serif);font-size:18px;color:var(--ink-2);font-style:italic;
+  }
+
+  .tbl-scroll{overflow-x:auto;margin:24px 0}
+  table{border-collapse:collapse;width:100%;font-size:14.5px}
+  th,td{text-align:left;padding:10px 14px;border-bottom:1px solid var(--line)}
+  th{font-size:12px;letter-spacing:.06em;color:var(--muted);font-weight:600;background:#fbfaf7}
+  td.num,th.num{font-family:var(--mono);text-align:right}
+  tbody tr:hover{background:#fbfaf7}
+
+  .formula{
+    font-family:var(--mono);background:#1b1e25;color:#e9e6dd;
+    border-radius:12px;padding:18px 20px;margin:20px 0;font-size:14.5px;
+    overflow-x:auto;line-height:2;white-space:pre-wrap;
+  }
+  .formula .cm{color:#8b93a5}
+  .formula .hl{color:#ffd48a}
+
+  /* ---- widgets ---- */
+  .demo{
+    background:var(--card);border:1px solid var(--line);border-radius:16px;
+    box-shadow:var(--shadow);overflow:hidden;margin:26px 0;
+  }
+  .demo-top{
+    display:flex;align-items:center;justify-content:space-between;gap:12px;
+    padding:12px 18px;border-bottom:1px solid var(--line);background:#fbfaf7;
+    font-size:12px;font-family:var(--mono);color:var(--muted);letter-spacing:.06em;
+  }
+  .dotrow{display:flex;gap:5px}
+  .dotrow i{width:8px;height:8px;border-radius:50%;background:var(--line-2);display:block}
+  .demo-body{padding:20px}
+
+  .pills{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px}
+  .pill{
+    appearance:none;cursor:pointer;border:1px solid var(--line-2);background:#fff;
+    border-radius:999px;padding:7px 14px;font-size:13.5px;font-family:var(--sans);
+    color:var(--ink-2);transition:.15s;
+  }
+  .pill:hover{border-color:var(--ink)}
+  .pill.active{background:var(--ink);color:#fff;border-color:var(--ink)}
+  .speed-stage{
+    background:#fbfaf7;border:1px solid var(--line);border-radius:12px;padding:20px 22px;
+  }
+  .speed-real{font-size:12px;letter-spacing:.08em;color:var(--muted);font-family:var(--mono)}
+  .speed-big{
+    font-family:var(--serif);font-size:30px;line-height:1.3;margin:6px 0 2px;letter-spacing:-.01em;
+  }
+  .speed-big small{font-size:14px;color:var(--muted);font-family:var(--sans)}
+  .speed-note{font-size:15px;color:var(--ink-2);margin-top:10px}
+
+  .steps{display:flex;flex-direction:column;gap:8px;margin-bottom:16px}
+  .step{
+    display:flex;gap:12px;align-items:flex-start;background:#fbfaf7;
+    border:1px solid var(--line);border-radius:10px;padding:11px 14px;transition:.2s;
+  }
+  .step .n{
+    font-family:var(--mono);font-size:12px;flex:none;width:24px;height:24px;
+    border-radius:50%;display:flex;align-items:center;justify-content:center;
+    border:1px solid var(--line-2);color:var(--muted);transform:translateY(2px);
+  }
+  .step .t{font-size:14.5px;color:var(--muted)}
+  .step.active{background:var(--accent-soft);border-color:rgba(43,78,230,.45)}
+  .step.active .n{background:var(--accent);color:#fff;border-color:var(--accent)}
+  .step.active .t{color:var(--ink);font-weight:600}
+  .step.done .n{background:#e6efe9;border-color:#bcd6cb;color:var(--ok)}
+  .stage{
+    background:#fbfaf7;border:1px solid var(--line);border-radius:12px;
+    padding:16px 20px;font-size:15.5px;color:var(--ink-2);min-height:110px;
+  }
+  .stage .st-title{font-family:var(--serif);font-size:19px;color:var(--ink);margin-bottom:6px}
+  .stage .st-elapse{font-family:var(--mono);font-size:12.5px;color:var(--accent-2);margin-top:8px}
+  .ctrl-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;align-items:center}
+  .btn{
+    appearance:none;border:1px solid var(--ink);background:var(--ink);color:#fff;
+    padding:9px 16px;border-radius:8px;font-size:13.5px;font-weight:600;cursor:pointer;
+    font-family:var(--sans);transition:.15s;white-space:nowrap;
+  }
+  .btn:hover{transform:translateY(-1px);box-shadow:0 4px 12px -4px rgba(20,22,27,.4)}
+  .btn.ghost{background:#fff;color:var(--ink);border-color:var(--line-2)}
+  .btn.ghost:hover{border-color:var(--ink);box-shadow:none}
+  .btn.mini{padding:6px 11px;font-size:12.5px}
+  .btn:disabled{opacity:.45;cursor:not-allowed;transform:none;box-shadow:none}
+  .progress{font-family:var(--mono);font-size:12px;color:var(--muted);margin-left:auto}
+
+  .levels{display:grid;gap:14px;margin:24px 0}
+  .level{
+    background:var(--card);border:1px solid var(--line);border-left:4px solid var(--accent);
+    border-radius:0 12px 12px 0;padding:18px 22px;
+  }
+  .level.l2{border-left-color:#7c3aed}
+  .level.l3{border-left-color:var(--accent-2)}
+  .level .lv{font-family:var(--mono);font-size:11.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+  .level h4{margin:4px 0 8px;font-size:17px;font-family:var(--serif)}
+  .level ul{margin-bottom:0;font-size:15px}
+
+  details{
+    border:1px solid var(--line);border-radius:10px;padding:12px 16px;margin:10px 0;
+    background:var(--card);
+  }
+  details summary{cursor:pointer;font-weight:600;font-size:15px;list-style:none;display:flex;gap:10px;align-items:flex-start}
+  details summary::-webkit-details-marker{display:none}
+  details summary::before{content:"Q";font-family:var(--mono);font-size:11px;color:var(--accent);border:1px solid rgba(43,78,230,.3);border-radius:4px;padding:0 5px;flex:none;transform:translateY(3px)}
+  details[open] summary{margin-bottom:8px;padding-bottom:8px;border-bottom:1px dashed var(--line)}
+  details .ans{font-size:15px;color:var(--ink-2);padding-left:2px}
+  details .ans p:last-child{margin-bottom:0}
+
+  footer{padding:44px 24px 70px;font-size:13.5px;color:var(--muted)}
+  .foot-row{display:flex;flex-wrap:wrap;justify-content:space-between;gap:16px;align-items:center}
+  .next{
+    display:inline-flex;align-items:center;gap:10px;background:var(--card);
+    border:1px solid var(--line);border-radius:12px;padding:14px 18px;
+    box-shadow:var(--shadow);color:var(--ink);border-bottom:1px solid var(--line);
+  }
+  .next:hover{box-shadow:0 10px 28px -14px rgba(20,22,27,.25)}
+
+  @media (max-width:640px){
+    body{font-size:16px}
+    h1{font-size:30px}
+    .hero{padding:44px 20px 32px}
+    section{padding:40px 0}
+    h2{font-size:23px}
+    .navlinks{display:none}
+    .demo-body{padding:14px}
+    .speed-big{font-size:24px}
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-inner">
+    <div class="brand"><span class="brand-dot"></span>每周一个计算机小知识</div>
+    <nav class="navlinks">
+      <a href="#parts">硬件</a>
+      <a href="#speed">速度体感</a>
+      <a href="#journey">代码旅程</a>
+      <a href="#slow">卡顿诊断</a>
+      <a href="#mindset">心法</a>
+      <a href="#challenge">挑战</a>
+    </nav>
+  </div>
+</div>
+
+<header class="hero wrap">
+  <div class="kicker"><span class="num">01</span> Week 01 · How Computers Run Your Code</div>
+  <h1>你写的代码，电脑是<em>怎么跑起来的</em>？</h1>
+  <p class="lede">
+    你让 AI 写过 Python 小脚本，双击运行，屏幕上就有了结果 —— 但中间发生了什么，像被藏进了黑盒子。
+    这期我们把盒子掀开一角：CPU、内存、硬盘是怎么分工的，一行 <code>print("hello")</code> 要经过哪些站才能变成屏幕上的字。
+    不需要数学，不需要算法，只需要你会开机。
+  </p>
+  <div class="meta">
+    <span>📖 阅读 <b>约 15 分钟</b></span>
+    <span>🧩 本周挑战 <b>3 个小任务</b></span>
+    <span>💻 代码量 <b>≤ 10 行</b></span>
+  </div>
+</header>
+
+<main class="wrap">
+
+<!-- ============ 00 ============ -->
+<section id="intro">
+  <div class="sec-head"><span class="sec-num">00</span><h2>为什么要懂这个</h2></div>
+
+  <p>
+    先说清楚定位：这一系列<strong>不打算把你培养成程序员</strong>。
+    写算法、啃框架、刷题 —— 那些 AI 干得比你快，也没必要再练。
+    但有一件事 AI 替代不了：<strong>你得能看懂电脑在干什么，才能把问题说清楚、把 AI 给的东西用好</strong>。
+  </p>
+  <p>
+    而看懂的第一步，不是什么高深理论，是三样你天天在摸的硬件，和一条从键盘到屏幕的路。
+    读懂这期，你就能回答这些以前只能背口诀的问题：
+  </p>
+  <ul>
+    <li>为什么内存不够电脑会卡，硬盘不够只是装不下？</li>
+    <li>为什么程序要「加载」几秒才能打开，关机再开还要重新加载？</li>
+    <li>任务管理器里 CPU 100% 和磁盘 100%，是完全不同的两种病，怎么分？</li>
+  </ul>
+
+  <blockquote>所有性能问题，本质上都是某一种资源在排队。学会看「谁在排队」，你就入门了。</blockquote>
+</section>
+
+<!-- ============ 01 硬件 ============ -->
+<section id="parts">
+  <div class="sec-head"><span class="sec-num">01</span><h2>硬件三巨头：大脑、草稿纸、记事本</h2></div>
+
+  <p>把一台电脑砍到最简，只剩三个干活的角色：</p>
+
+  <div class="tbl-scroll">
+  <table>
+    <thead><tr><th>部件</th><th>角色</th><th>特点</th><th>断电后</th></tr></thead>
+    <tbody>
+      <tr><td><strong>CPU</strong></td><td>大脑：负责「算」</td><td>每秒几十亿次运算，但几乎什么都不记，算完就忘</td><td>—</td></tr>
+      <tr><td><strong>内存（RAM）</strong></td><td>草稿纸：放「正在用」的东西</td><td>速度极快，CPU 随取随用，但容量有限（常见 8~32 GB）</td><td><strong>全部清空</strong></td></tr>
+      <tr><td><strong>硬盘（SSD）</strong></td><td>仓库：放「所有」东西</td><td>容量大（几百 GB 到几 TB），断电不丢，但慢</td><td>完好保存</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <p>还有两个配角：<strong>显卡</strong>（GPU，专门负责「画」屏幕和算图形，AI 训练也用它）和<strong>主板</strong>（把上面所有零件连起来的公交系统）。本期先不管它们。</p>
+
+  <h3>一条最重要的工作流</h3>
+  <p>你双击一个程序图标时，电脑做的事是：</p>
+
+  <div class="formula"><span class="cm"># 双击图标的本质，一句话版</span>
+把程序文件从 <span class="hl">硬盘</span> 复制进 <span class="hl">内存</span> → 让 <span class="hl">CPU</span> 从内存里逐条读取并执行</div>
+
+  <p>
+    这一行的推论比它本身值钱得多：
+  </p>
+  <ul>
+    <li><strong>为什么要「加载」几秒？</strong> 因为复制进内存需要时间，慢的那一端是硬盘。</li>
+    <li><strong>为什么关机再开要重新加载？</strong> 因为内存断电就清空，程序本体只存在硬盘里。</li>
+    <li><strong>为什么内存满了会卡？</strong> 因为内存装不下时，系统开始拿硬盘「客串」内存（叫虚拟内存），而硬盘比内存慢几百到上千倍 —— 相当于把草稿纸换成了仓库，每次打草稿都要跑一趟仓库。</li>
+    <li><strong>为什么加装内存条 / 换 SSD 是最有效的两笔升级？</strong> 因为它们直接决定「排队」发生在哪里。</li>
+  </ul>
+
+  <div class="callout">
+    <span class="tag">记住这张分工表</span>
+    <p>CPU 负责<strong>算</strong>，内存负责<strong>临时记</strong>，硬盘负责<strong>永久记</strong>。以后遇到任何「电脑为什么慢/卡/崩」，先问一句：是哪一环在排队？</p>
+  </div>
+</section>
+
+<!-- ============ 02 速度体感 ============ -->
+<section id="speed">
+  <div class="sec-head"><span class="sec-num">02</span><h2>速度体感：把 CPU 缩小成一个人</h2></div>
+
+  <p>
+    「内存比硬盘快几百倍」这种话听过就忘。换个说法你永远忘不掉：
+    <strong>假设 CPU 是一个人，它干一次活要 1 秒</strong> —— 按同样的倍数放大，它找内存拿一次数据要等<strong>几分钟</strong>，
+    找硬盘要等<strong>好几天</strong>，访问一个网站要等<strong>好几年</strong>。点下面按钮感受一下：
+  </p>
+
+  <div class="demo">
+    <div class="demo-top">
+      <div class="dotrow"><i></i><i></i><i></i></div>
+      <span>TIME SCALER · CPU = 1 人</span>
+    </div>
+    <div class="demo-body">
+      <div class="pills" id="partPills">
+        <button class="pill active" data-i="0">CPU 干一次活</button>
+        <button class="pill" data-i="1">读二级缓存</button>
+        <button class="pill" data-i="2">读一次内存</button>
+        <button class="pill" data-i="3">读一次 SSD</button>
+        <button class="pill" data-i="4">机械硬盘寻道</button>
+        <button class="pill" data-i="5">访问一次网站</button>
+      </div>
+      <div class="speed-stage">
+        <div class="speed-real" id="spReal">真实耗时 ≈ 0.3 纳秒（十亿分之 0.3 秒）</div>
+        <div class="speed-big" id="spBig">1 秒 <small>· 眨一下眼的事</small></div>
+        <div class="speed-note" id="spNote">这是 CPU 的正常节奏：它快到大部分时间都在「等别人」。</div>
+      </div>
+      <p style="margin:14px 0 0;font-size:14.5px;color:var(--muted)">
+        换算基准：CPU 干一次活 ≈ 0.3 纳秒，把它放大成「1 秒」，其他部件按同一倍数放大。
+        这也是为什么 CPU 旁边要塞一层小小的「缓存」—— 把最常要的东西放在手边，省得每次都跑仓库。
+      </p>
+    </div>
+  </div>
+
+  <div class="callout warn">
+    <span class="tag">由此得出的选购常识</span>
+    <p>同样预算下：<strong>内存 8G 换 16G 的体验提升，远大于 CPU i5 换 i7</strong>。因为对日常使用来说，瓶颈几乎总是内存和硬盘，而不是 CPU 的算力。广告总在吹 CPU 参数，但你日常卡顿，八成是内存满了。</p>
+  </div>
+</section>
+
+<!-- ============ 03 代码旅程 ============ -->
+<section id="journey">
+  <div class="sec-head"><span class="sec-num">03</span><h2>一行代码的旅程：从键盘到屏幕</h2></div>
+
+  <p>
+    现在把镜头对准你最熟悉的一幕：你在 Python 里写下 <code>print("hello")</code>，按下运行，屏幕打出 hello。
+    中间一共经过六站。点「下一步」走一遍：
+  </p>
+
+  <div class="demo">
+    <div class="demo-top">
+      <div class="dotrow"><i></i><i></i><i></i></div>
+      <span>print("hello") · STEP BY STEP</span>
+    </div>
+    <div class="demo-body">
+      <div class="steps" id="steps"></div>
+      <div class="stage">
+        <div class="st-title" id="stTitle">准备出发</div>
+        <div id="stText">一行 14 个字符的代码，即将开始它的旅程。全程通常不超过几十毫秒。</div>
+        <div class="st-elapse" id="stElapse"></div>
+      </div>
+      <div class="ctrl-row">
+        <button class="btn ghost mini" id="btnPrev">上一步</button>
+        <button class="btn mini" id="btnNext">下一步</button>
+        <button class="btn ghost mini" id="btnReset">重置</button>
+        <span class="progress" id="stProg">0 / 6</span>
+      </div>
+    </div>
+  </div>
+
+  <h3>顺带分清两个词：解释执行 vs 编译执行</h3>
+  <p>
+    上面第 4 站是 Python 的特色：<strong>边读边翻译边执行</strong>，像同声传译。
+    而 C、C++ 这类语言是<strong>先把整本书翻译完装订成册</strong>（编译成机器码），以后每次运行直接跑译文，所以更快，但换台电脑就得重新翻译。
+    你不需要背谁优谁劣，只要知道有三条路线存在：
+  </p>
+  <div class="tbl-scroll">
+  <table>
+    <thead><tr><th>方式</th><th>代表语言</th><th>类比</th><th>特点</th></tr></thead>
+    <tbody>
+      <tr><td>解释执行</td><td>Python、JavaScript</td><td>同声传译，说一句翻一句</td><td>灵活、上手快，跑得慢一些</td></tr>
+      <tr><td>编译执行</td><td>C、C++、Rust、Go</td><td>先整本翻译再出版</td><td>跑得飞快，改一行要重新编译</td></tr>
+      <tr><td>折中方案</td><td>Java、C#</td><td>先翻成统一中间稿，到处有人念</td><td>「一次编译，到处运行」</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="callout">
+    <span class="tag">一个反直觉的事实</span>
+    <p>你的代码在 CPU 眼里不是「代码」，只是<strong>数据</strong>。所谓运行程序，就是把一份特殊的数据从硬盘搬进内存，再让 CPU 按顺序处理它。所以「程序崩溃了」并不是什么神秘事件 —— 只是这份数据被执行到某一步时，遇到了它应付不了的情况。</p>
+  </div>
+</section>
+
+<!-- ============ 04 卡顿诊断 ============ -->
+<section id="slow">
+  <div class="sec-head"><span class="sec-num">04</span><h2>实战：看懂任务管理器，给卡顿下诊断</h2></div>
+
+  <p>
+    「软件开发逻辑」最实用的入门课不在教科书里，在 <strong>Ctrl + Shift + Esc</strong> 打开的任务管理器里。
+    记住诊断思路：电脑同时只做四种事 —— 算（CPU）、临时记（内存）、读写（磁盘）、联网（网络）。
+    <strong>卡，就是其中一样在排队。</strong>对照下表：
+  </p>
+
+  <div class="tbl-scroll">
+  <table>
+    <thead><tr><th>症状</th><th>谁在排队</th><th>典型原因</th><th>你能做的</th></tr></thead>
+    <tbody>
+      <tr><td>风扇狂转，CPU 100%，机器烫</td><td>CPU</td><td>某个程序在死循环硬算（也可能是后台病毒/挖矿）</td><td>按 CPU 排序，揪出占用最高的那个进程</td></tr>
+      <tr><td>内存占用 95% 以上，切窗口都卡</td><td>内存</td><td>开的东西太多，系统拿硬盘客串内存</td><td>关掉不用的程序；长期如此就加内存条</td></tr>
+      <tr><td>磁盘 100% 但 CPU 很闲</td><td>磁盘</td><td>在等硬盘：大文件复制、杀毒扫描、老机械盘</td><td>等它跑完；根治办法是换 SSD</td></tr>
+      <tr><td>硬件都正常，网页就是慢</td><td>网络</td><td>WiFi 信号、运营商、对方服务器</td><td>这不是电脑的锅，重启路由器试试</td></tr>
+      <tr><td>开机后硬盘灯常亮几分钟</td><td>磁盘</td><td>系统更新、索引服务在后台读写</td><td>不用管，让它们跑完</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <p>
+    注意第一行和第三行的区别：<strong>CPU 100% 是「大脑算不过来」，磁盘 100% 是「仓库门口排长队」</strong>，
+    药方完全不同。网上七成「电脑卡怎么办」的文章说不清这一点，你现在比它们都清楚。
+  </p>
+
+  <h3>三道自测</h3>
+  <details>
+    <summary>程序 A 内存泄漏，越跑越吃内存，最终电脑会怎样？</summary>
+    <div class="ans"><p>内存被吃满 → 系统开始用硬盘客串内存（虚拟内存）→ 一切突然变慢几十倍，硬盘灯常亮 → 最坏情况系统弹「内存不足」或直接把程序杀掉。所以「越用越卡、重启就好」的程序，十有八九是内存泄漏。</p></div>
+  </details>
+  <details>
+    <summary>为什么把系统从机械硬盘换到 SSD，开机从 1 分钟变 10 秒？</summary>
+    <div class="ans"><p>开机 = 把大量系统文件从硬盘读进内存。机械硬盘寻道要十几毫秒（在人类尺度里是「一年」），SSD 随机读快百倍以上，排队时间直接消失。CPU 和内存没换，但瓶颈换了。</p></div>
+  </details>
+  <details>
+    <summary>打开 30 个浏览器标签页，变卡的主因更可能是 CPU 还是内存？为什么？</summary>
+    <div class="ans"><p>内存。每个标签页都是一份活的数据要住在内存里（图片、网页状态），30 个标签轻松吃掉几个 GB。CPU 反而大部分时间在等 —— 网页静置时几乎不消耗算力。这也是为什么「标签页过多」的解法是关标签或加内存，而不是换 CPU。</p></div>
+  </details>
+</section>
+
+<!-- ============ 05 心法 ============ -->
+<section id="mindset">
+  <div class="sec-head"><span class="sec-num">05</span><h2>AI 时代，爱好者要懂到什么程度</h2></div>
+
+  <p>
+    不用会写算法，不用背语法。但下面 5 个概念建议真懂 —— 它们是「看懂 AI 给你的代码」和「把 bug 说清楚」的地基。
+    每个概念一行代码就够：
+  </p>
+
+  <div class="tbl-scroll">
+  <table>
+    <thead><tr><th>概念</th><th>人话版</th><th>一行代码</th></tr></thead>
+    <tbody>
+      <tr><td>变量</td><td>贴了标签的盒子，东西放进去，贴纸换着用</td><td><code>age = 20</code></td></tr>
+      <tr><td>函数</td><td>自动贩卖机：投币（给参数）→ 出货（拿结果），里面怎么转不用管</td><td><code>len("hello")</code></td></tr>
+      <tr><td>循环</td><td>把无聊的重复事扔给电脑，它不会烦</td><td><code>for i in range(3): print(i)</code></td></tr>
+      <tr><td>报错信息</td><td>程序的求救信，<strong>从最后一行往上读</strong>，最后往往就一句人话</td><td><code>Traceback ...</code></td></tr>
+      <tr><td>进程</td><td>正在运行的程序；卡死了就杀掉，电脑不会坏</td><td>任务管理器 → 结束任务</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="callout">
+    <span class="tag">和 AI 协作的正确姿势</span>
+    <p>让 AI 写代码时，你的价值不在于亲自写出它，而在于<strong>描述得准</strong>：「我想要一个每次运行都往 记录.txt 追加一行时间的脚本」——
+    这句话里的「追加」「每次运行」「txt 文件」全是这期教过的概念。
+    代码跑挂了，把<strong>报错的最后三行</strong>贴给 AI，比只说「它坏了」有用一百倍。</p>
+  </div>
+</section>
+
+<!-- ============ 06 挑战 ============ -->
+<section id="challenge">
+  <div class="sec-head"><span class="sec-num">06</span><h2>本周挑战：以观察为主，代码 ≤ 10 行</h2></div>
+
+  <p>这周的挑战不考算法，考「亲眼看一次」。三级任选，做完任意一个都算赢。</p>
+
+  <div class="levels">
+    <div class="level">
+      <div class="lv">Lv 1 · 观察 · 15 分钟 · 零代码</div>
+      <h4>当一次电脑医生</h4>
+      <ul>
+        <li>打开任务管理器（Ctrl+Shift+Esc），分别按 CPU / 内存 / 磁盘排序，记录<strong>前三名分别是谁</strong>。</li>
+        <li>开着浏览器连开 15 个标签页，看内存涨了多少 GB。</li>
+        <li>复制一个 1 GB 以上的大文件到另一个盘，同时观察：磁盘是不是冲到 100%？CPU 当时是多少？</li>
+        <li>把三个观察写成三句话（例如「我电脑最吃内存的是微信」）。</li>
+      </ul>
+    </div>
+    <div class="level l2">
+      <div class="lv">Lv 2 · 动手 · 20 分钟 · 代码 10 行</div>
+      <h4>亲手证明「内存比硬盘快几百倍」</h4>
+      <ul>
+        <li>跑下面这段 10 行 Python 脚本：分别测「往内存里塞 100 万个数」和「往硬盘写 100 万行」的耗时。</li>
+        <li>记录两个数字，算出比值。</li>
+        <li>和第 02 节的时间体感表对照，看你实测的倍数落在哪个区间。</li>
+      </ul>
+    </div>
+    <div class="level l3">
+      <div class="lv">Lv 3 · 探索 · 半小时</div>
+      <h4>认领你自己的硬件</h4>
+      <ul>
+        <li>查出你这台电脑的 CPU 型号 / 内存容量 / 硬盘是固态还是机械（Windows：设置 → 系统 → 关于）。</li>
+        <li>对照第 01 节的分工表，写一句话判断：你这台机器日常的瓶颈最可能是哪一环？依据是什么？</li>
+        <li>进阶（可选）：搜你的 CPU 型号 + 「天梯图」，看看它排在什么位置。</li>
+      </ul>
+    </div>
+  </div>
+
+  <h3>Lv2 的 10 行脚本（直接复制运行）</h3>
+
+  <div class="formula"><span class="cm"># memory_vs_disk.py —— 亲口问问你的电脑：内存和硬盘差多少倍？</span>
+<span class="hl">import</span> time
+
+N = 1_000_000
+t0 = time.time(); data = [<span class="hl">0</span>] * N; t1 = time.time()   <span class="cm"># ① 写内存</span>
+<span class="hl">print</span>(<span class="hl">f"写内存 100 万个数：{t1-t0:.3f} 秒"</span>)
+
+t0 = time.time()
+<span class="hl">with</span> open(<span class="hl">"test.txt"</span>, <span class="hl">"w"</span>) <span class="hl">as</span> f:                      <span class="cm"># ② 写硬盘</span>
+    <span class="hl">for</span> i <span class="hl">in</span> range(N): f.write(<span class="hl">f"{i}\n"</span>)
+t1 = time.time()
+<span class="hl">print</span>(<span class="hl">f"写硬盘 100 万行：{t1-t0:.3f} 秒"</span>)</div>
+
+  <p style="font-size:15px;color:var(--muted)">
+    运行完把两个秒数相除，就是你这台电脑上「内存 vs 硬盘」的实测倍数。跑完可以删掉 test.txt。
+  </p>
+
+  <div class="callout">
+    <span class="tag">怎么交作业</span>
+    <p>不强制写代码、不强制开 PR。去仓库<strong>开一个 Issue</strong>，标题写「Week01 打卡」，正文贴上你的三句话观察 / 两个秒数 / 硬件配置判断，就算完成。互相看看别人的电脑都卡在哪，挺有意思。</p>
+  </div>
+</section>
+
+<!-- ============ 07 小结 ============ -->
+<section id="takeaway">
+  <div class="sec-head"><span class="sec-num">07</span><h2>带走三句话</h2></div>
+
+  <ol>
+    <li><strong>电脑 = 大脑（CPU）+ 草稿纸（内存）+ 仓库（硬盘）。</strong>所有「慢、卡、崩」都是这三样之一在排队，先问是哪一环，再谈解决办法。</li>
+    <li><strong>运行程序 = 把代码当数据搬运。</strong>双击图标，本质是把文件从硬盘复制进内存让 CPU 逐条执行；内存断电清空，所以一切都要「重新加载」。</li>
+    <li><strong>AI 时代爱好者的核心竞争力是「说得清」。</strong>懂分工、会看排队、能读报错最后一行 —— 这三件事让你把 AI 用得比别人好得多。</li>
+  </ol>
+
+  <div class="callout">
+    <span class="tag">下期预告</span>
+    <p>Week 02 候选：<strong>SSD 为什么快</strong>（拆开看闪存怎么记东西）、<strong>程序为什么会崩</strong>（从「容器满了」讲起，看懂最常见报错）、<strong>操作系统是干嘛的</strong>（你双击图标之前，是谁在接电话）。<br />想听哪个，去仓库 Issue 投票。</p>
+  </div>
+</section>
+
+</main>
+
+<footer class="wrap">
+  <div class="foot-row">
+    <div>
+      <div style="color:var(--ink);font-weight:600;margin-bottom:4px">每周一个计算机小知识 · Week 01</div>
+      <div>爱好者版 · 硬件分工 + 代码旅程 + 卡顿诊断</div>
+    </div>
+    <a class="next" href="https://github.com/kinghihido/cs-weekly" target="_blank" rel="noopener">
+      <span>在 GitHub 上查看源码与挑战</span><span style="color:var(--accent)">→</span>
+    </a>
+  </div>
+  <div style="margin-top:26px;padding-top:18px;border-top:1px solid var(--line);font-size:12.5px">
+    本站内容可自由转载，署名即可 · 所有交互演示均在浏览器本地运行，不上传任何数据
+  </div>
+</footer>
+
+<script>
+(function(){
+  "use strict";
+  var el = function(id){ return document.getElementById(id); };
+
+  /* ---------------- widget 1: time scaler ---------------- */
+  var PARTS = [
+    { name:"CPU 干一次活", real:"≈ 0.3 纳秒（十亿分之 0.3 秒）", big:"1 秒", sub:"· 眨一下眼的事",
+      note:"这是 CPU 的正常节奏：它快到大部分时间都在「等别人」。" },
+    { name:"读二级缓存", real:"≈ 3 纳秒", big:"10 秒", sub:"· 喝一口水的时间",
+      note:"缓存就是放在 CPU 手边的小抄，能不去内存就不去内存。" },
+    { name:"读一次内存", real:"≈ 100 纳秒", big:"5.5 分钟", sub:"· 泡一碗方便面",
+      note:"内存已经比硬盘快几百倍，但在 CPU 眼里仍是漫长的等待。" },
+    { name:"读一次 SSD", real:"≈ 0.1 毫秒", big:"约 4 天", sub:"· 一个小长假",
+      note:"SSD 已经很快了，但 CPU 等它，像你等一个包裹。" },
+    { name:"机械硬盘寻道", real:"≈ 10 毫秒", big:"约 1 年", sub:"· 从春天等到冬天",
+      note:"磁头要物理移动到盘片位置 —— 这就是老电脑卡的元凶。" },
+    { name:"访问一次网站", real:"≈ 150 毫秒", big:"约 5 年", sub:"· 一整个大学学期",
+      note:"所以网页要「加载中」：CPU 在等你家路由器和对方服务器。" }
+  ];
+  var pills = el("partPills").querySelectorAll(".pill");
+  function showPart(i){
+    for (var k = 0; k < pills.length; k++) pills[k].classList.toggle("active", k === i);
+    var p = PARTS[i];
+    el("spReal").textContent = "真实耗时 " + p.real;
+    el("spBig").innerHTML = p.big + " <small>" + p.sub + "</small>";
+    el("spNote").textContent = p.note;
+  }
+  for (var k = 0; k < pills.length; k++){
+    (function(idx){
+      pills[idx].addEventListener("click", function(){ showPart(idx); });
+    })(k);
+  }
+  showPart(0);
+
+  /* ---------------- widget 2: code journey ---------------- */
+  var STEPS = [
+    { t:"你敲下键盘", d:"键盘把字符一个个送进内存。编辑器窗口里你看到的文字，只是内存里这份数据的显示 —— 所以这时候断电，字全没了。",
+      e:"此刻数据在：内存" },
+    { t:"你按下保存", d:"编辑器把内存里的文字写进硬盘。从此这 14 个字符有了永久住所，断电、重启都不会丢。",
+      e:"此刻数据在：硬盘（.py 文件）" },
+    { t:"你点「运行」", d:"操作系统收到请求，把 Python 解释器（它本身也是一个躺在硬盘里的程序）调进内存，让它开工。这也是为什么第一次运行总有点慢。",
+      e:"此刻新登场：Python 解释器，住进内存" },
+    { t:"解释器读代码", d:"解释器逐字符读你这行代码，搞清楚「这是一个动作，叫 print，参数是 hello」—— 这个过程叫解析。然后把它翻译成 Python 自己的中间指令（字节码）。",
+      e:"此刻发生：翻译，代码 → 字节码" },
+    { t:"逐条执行", d:"Python 虚拟机一条条执行字节码。遇到 print 这句，它自己不会画画，于是举手喊操作系统：「帮我在屏幕上显示 hello」。",
+      e:"此刻发生：一层层委托，直到操作系统" },
+    { t:"屏幕亮了", d:"操作系统通知显卡驱动，把对应像素画到你眼前的屏幕上。hello 出现了 —— 全程通常不超过 50 毫秒，但经过了硬盘、内存、CPU、操作系统、显卡五方接力。",
+      e:"全程 ≈ 50 毫秒，六站走完" }
+  ];
+  var cur = -1;
+  var stepsBox = el("steps");
+  for (var s = 0; s < STEPS.length; s++){
+    var div = document.createElement("div");
+    div.className = "step";
+    div.innerHTML = '<span class="n">' + (s + 1) + '</span><span class="t">' + STEPS[s].t + "</span>";
+    stepsBox.appendChild(div);
+  }
+  var stepEls = stepsBox.querySelectorAll(".step");
+  function render(){
+    for (var i = 0; i < stepEls.length; i++){
+      stepEls[i].classList.toggle("active", i === cur);
+      stepEls[i].classList.toggle("done", i < cur);
+    }
+    if (cur < 0){
+      el("stTitle").textContent = "准备出发";
+      el("stText").textContent = "一行 14 个字符的代码，即将开始它的旅程。全程通常不超过几十毫秒。";
+      el("stElapse").textContent = "";
+    } else {
+      var st = STEPS[cur];
+      el("stTitle").textContent = (cur + 1) + ". " + st.t;
+      el("stText").textContent = st.d;
+      el("stElapse").textContent = "▪ " + st.e;
+    }
+    el("stProg").textContent = (cur + 1) + " / " + STEPS.length;
+    el("btnNext").disabled = cur >= STEPS.length - 1;
+    el("btnPrev").disabled = cur < 0;
+  }
+  el("btnNext").addEventListener("click", function(){ if (cur < STEPS.length - 1){ cur++; render(); } });
+  el("btnPrev").addEventListener("click", function(){ if (cur >= 0){ cur--; render(); } });
+  el("btnReset").addEventListener("click", function(){ cur = -1; render(); });
+  render();
+})();
+</script>
+</body>
+</html>
