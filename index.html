@@ -3,10 +3,10 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>第 02 期 · 你的密码，网站到底怎么存的</title>
-<meta name="description" content="每周一个计算机小知识 · 第 02 期（爱好者版）：哈希指纹、加盐、慢哈希、HTTPS 与存储的区别，以及你该怎么设密码。含三个可点击的本地演示。" />
+<title>第 03 期 · 一个网址，从按下回车到看见页面</title>
+<meta name="description" content="每周一个计算机小知识 · 第 03 期（爱好者版）：DNS、TCP/TLS 握手、HTTP、CDN、浏览器渲染 —— 把打开网页的 0.4 秒拆成五段。含可调速的瀑布图、DNS 缓存链演示与网页变慢自查表。" />
 <meta property="og:title" content="计算机小知识 · 每周一条" />
-<meta property="og:description" content="给爱好者的计算机常识课：每期讲清一个天天在用但说不明白的东西。第 02 期：你的密码，网站到底怎么存的。" />
+<meta property="og:description" content="给爱好者的计算机常识课：每期讲清一个天天在用但说不明白的东西。第 03 期：一个网址从输入到出现，中间发生了什么。" />
 <meta property="og:type" content="website" />
 <meta property="og:url" content="https://kinghihido.github.io/cs-weekly/" />
 <style>
@@ -136,7 +136,28 @@
   .formula .cm{color:#8b93a5}
   .formula .hl{color:#ffd48a}
 
-  /* ---- widgets ---- */
+  /* ---- 路线条 ---- */
+  .stops{
+    display:flex;gap:8px;overflow-x:auto;margin:26px 0;padding:2px 2px 10px;
+    scrollbar-width:thin;
+  }
+  .stop{
+    flex:1 0 128px;background:var(--card);border:1px solid var(--line);border-radius:12px;
+    padding:14px 14px 12px;box-shadow:var(--shadow);position:relative;
+  }
+  .stop b{
+    display:block;font-family:var(--mono);font-size:11px;color:var(--accent);
+    letter-spacing:.08em;margin-bottom:4px;
+  }
+  .stop span{display:block;font-weight:700;font-size:15px;line-height:1.4}
+  .stop em{display:block;font-style:normal;font-size:12.5px;color:var(--muted);font-family:var(--mono);margin-top:3px}
+  .stop::after{
+    content:"→";position:absolute;right:-11px;top:50%;transform:translateY(-50%);
+    color:var(--line-2);font-size:14px;
+  }
+  .stop:last-child::after{display:none}
+
+  /* ---- demo 外壳 ---- */
   .demo{
     background:var(--card);border:1px solid var(--line);border-radius:16px;
     box-shadow:var(--shadow);overflow:hidden;margin:26px 0;
@@ -158,6 +179,7 @@
   }
   .pill:hover{border-color:var(--ink)}
   .pill.active{background:var(--ink);color:#fff;border-color:var(--ink)}
+  .pill:disabled{opacity:.45;cursor:default}
 
   .fl{display:block;font-size:12px;font-family:var(--mono);letter-spacing:.08em;color:var(--muted);margin-bottom:6px}
   .txt{
@@ -167,66 +189,82 @@
   }
   .txt:focus{outline:none;border-color:var(--accent);background:#fff;box-shadow:0 0 0 3px var(--accent-soft)}
 
-  .fp-label{
-    font-size:12px;font-family:var(--mono);letter-spacing:.06em;color:var(--muted);
-    display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:7px;
-  }
-  .fp-grid{
-    display:grid;grid-template-columns:repeat(16,1fr);gap:2px;
-    background:#fbfaf7;border:1px solid var(--line);border-radius:10px;padding:8px;
-  }
-  .fp-cell{
-    font-family:var(--mono);font-size:13px;line-height:1.7;text-align:center;
-    color:#4b5568;border-radius:3px;
-  }
-  .fp-cell.diff{background:#fde9c8;color:#8a4a00;font-weight:700}
+  .note{font-size:14px;color:var(--muted);margin:12px 0 0}
   .badge{
     font-family:var(--mono);font-size:11px;padding:1px 7px;border-radius:999px;
     background:var(--accent-2-soft);color:var(--accent-2);border:1px solid #efd3a4;
     white-space:nowrap;
   }
-  .note{font-size:14px;color:var(--muted);margin:12px 0 0}
 
-  .col2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:6px}
-  .panel{
-    border:1px solid var(--line);border-radius:12px;padding:16px 16px;background:#fbfaf7;
+  /* ---- 瀑布图 ---- */
+  .ctl-row{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:flex-start;justify-content:space-between}
+  .tgs{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:16px}
+  .tg{
+    appearance:none;cursor:pointer;font-family:var(--mono);font-size:12px;
+    border:1px solid var(--line-2);background:#fff;color:var(--muted);
+    border-radius:7px;padding:6px 10px;transition:.15s;letter-spacing:.02em;
   }
-  .panel.bad{border-color:#efc9c9;background:#fdf6f6}
-  .panel.good{border-color:#bfdcd4;background:#f4faf8}
-  .panel-t{font-size:13px;font-weight:700;letter-spacing:.02em;margin-bottom:10px}
-  .panel.bad .panel-t{color:var(--danger)}
-  .panel.good .panel-t{color:var(--ok)}
-  .kv{font-family:var(--mono);font-size:11.5px;word-break:break-all;line-height:1.7;color:#3d424d;
-      background:#fff;border:1px solid var(--line);border-radius:7px;padding:8px 10px}
-  .kv b{color:var(--muted);font-weight:400;display:block;font-size:10.5px;letter-spacing:.06em;margin-bottom:2px}
-  .verdict{font-size:13.5px;margin:10px 0 0;line-height:1.6}
-  .verdict.hit{color:var(--danger);font-weight:600}
-  .verdict.safe{color:var(--ok)}
-  .rbt{margin-top:10px;font-family:var(--mono);font-size:11px;color:var(--muted);line-height:1.9}
-  .rbt .row{display:flex;justify-content:space-between;gap:8px;border-bottom:1px dashed var(--line);padding:1px 0}
-  .rbt .row.on{color:var(--danger);font-weight:700}
+  .tg::before{content:"○ ";opacity:.7}
+  .tg.on{background:var(--ok-soft);border-color:#bfdcd4;color:var(--ok)}
+  .tg.on::before{content:"● "}
 
-  .range-row{display:flex;align-items:center;gap:14px;margin:4px 0 18px}
-  .range-row .lbl{font-family:var(--mono);font-size:12.5px;color:var(--muted);white-space:nowrap}
-  input[type=range]{
-    -webkit-appearance:none;appearance:none;width:100%;height:24px;background:transparent;cursor:pointer;
+  .wl{margin-top:4px;border-top:1px dashed var(--line)}
+  .wl-row{
+    display:grid;grid-template-columns:104px 1fr 56px;gap:10px;align-items:center;
+    padding:7px 0;border-bottom:1px dashed var(--line);
+    opacity:0;transform:translateY(4px);transition:opacity .3s,transform .3s;
   }
-  input[type=range]::-webkit-slider-runnable-track{height:6px;border-radius:3px;background:var(--line-2)}
-  input[type=range]::-webkit-slider-thumb{
-    -webkit-appearance:none;width:20px;height:20px;border-radius:50%;background:var(--accent);
-    border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.25);margin-top:-7px;
+  .wl-row.show{opacity:1;transform:none}
+  .wl-name{font-size:12.5px;color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .wl-track{
+    position:relative;height:16px;background:#f4f2ec;border-radius:4px;overflow:hidden;
   }
-  input[type=range]::-moz-range-track{height:6px;border-radius:3px;background:var(--line-2)}
-  input[type=range]::-moz-range-thumb{width:18px;height:18px;border-radius:50%;background:var(--accent);border:2px solid #fff}
-  .bigtime{
-    background:#fbfaf7;border:1px solid var(--line);border-radius:12px;padding:18px 20px;
+  .wl-track::before{
+    content:"";position:absolute;inset:0;
+    background-image:linear-gradient(to right,rgba(0,0,0,.05) 1px,transparent 1px);
+    background-size:10% 100%;
   }
-  .bigtime .bt-top{font-family:var(--mono);font-size:11.5px;letter-spacing:.08em;color:var(--muted)}
-  .bigtime .bt-main{font-family:var(--serif);font-size:30px;line-height:1.35;margin:4px 0 6px;letter-spacing:-.01em}
-  .bigtime .bt-main.weak{color:var(--danger)}
-  .bigtime .bt-main.ok{color:var(--ok)}
-  .bigtime .bt-sub{font-size:13.5px;color:var(--ink-2);font-family:var(--mono);line-height:1.8}
+  .wl-bar{position:absolute;top:0;height:100%;border-radius:3px;min-width:3px;transition:none}
+  .wl-ms{font-family:var(--mono);font-size:12px;color:var(--muted);text-align:right}
 
+  .wl-foot{
+    display:flex;flex-wrap:wrap;gap:12px 18px;align-items:center;justify-content:space-between;
+    margin-top:16px;
+  }
+  .clock{font-family:var(--mono);font-size:13px;color:var(--muted);white-space:nowrap}
+  .clock span{font-size:26px;color:var(--ink);font-weight:700;letter-spacing:-.02em}
+  .clock em{font-style:normal;margin-left:2px}
+  .wl-note{font-size:13.5px;color:var(--ink-2);flex:1 1 240px;min-width:180px;line-height:1.65}
+
+  /* ---- DNS 链 ---- */
+  .dns-list{margin:6px 0 0}
+  .dns-row{
+    display:grid;grid-template-columns:170px 1fr 62px;gap:12px;align-items:baseline;
+    padding:9px 0;border-bottom:1px dashed var(--line);
+    opacity:0;transform:translateY(4px);transition:opacity .25s,transform .25s;
+  }
+  .dns-row.show{opacity:1;transform:none}
+  .dns-row.hit{background:var(--ok-soft);border-radius:6px;padding-left:8px;padding-right:8px}
+  .dns-n{font-size:13px;font-weight:650;font-family:var(--mono)}
+  .dns-d{font-size:13.5px;color:var(--ink-2);line-height:1.6}
+  .dns-ms{font-family:var(--mono);font-size:12px;color:var(--muted);text-align:right}
+  .dns-total{
+    font-family:var(--mono);font-size:12.5px;color:var(--muted);margin-top:12px;
+    display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap;
+  }
+  .dns-total b{font-size:22px;color:var(--ink);font-family:var(--serif)}
+
+  /* ---- 诊断器 ---- */
+  .dx-panel{
+    border:1px solid var(--line);border-radius:12px;background:#fbfaf7;padding:16px 18px;margin-top:6px;
+  }
+  .dx-t{font-family:var(--serif);font-size:17px;margin:0 0 6px;line-height:1.45}
+  .dx-line{display:grid;grid-template-columns:64px 1fr;gap:10px;font-size:14px;line-height:1.75;padding:5px 0}
+  .dx-line b{font-family:var(--mono);font-size:11px;letter-spacing:.08em;color:var(--muted);font-weight:600;padding-top:3px}
+  .dx-line.now b{color:var(--accent)}
+  .dx-line.no b{color:var(--danger)}
+
+  /* ---- 挑战 ---- */
   .levels{display:grid;gap:14px;margin:24px 0}
   .level{
     background:var(--card);border:1px solid var(--line);border-left:4px solid var(--accent);
@@ -266,10 +304,15 @@
     h2{font-size:23px}
     .navlinks{display:none}
     .demo-body{padding:14px}
-    .bigtime .bt-main{font-size:23px}
-    .col2{grid-template-columns:1fr}
-    .fp-cell{font-size:11px}
-    .fp-grid{gap:1px;padding:6px}
+    .wl-row{grid-template-columns:82px 1fr 44px;gap:7px}
+    .wl-name{font-size:11.5px}
+    .dns-row{grid-template-columns:1fr 54px;gap:4px 10px}
+    .dns-n{grid-column:1}
+    .dns-d{grid-column:1 / -1;font-size:12.5px}
+    .dns-ms{grid-column:2;grid-row:1}
+    .stop{flex:0 0 118px}
+    .dx-line{grid-template-columns:1fr;gap:0}
+    .dx-line b{padding-top:6px}
   }
 </style>
 </head>
@@ -279,560 +322,604 @@
   <div class="topbar-inner">
     <div class="brand"><span class="brand-dot"></span>每周一个计算机小知识</div>
     <nav class="navlinks">
-      <a href="#why">为什么</a>
-      <a href="#hash">指纹机</a>
-      <a href="#rules">三条推论</a>
-      <a href="#salt">加盐</a>
-      <a href="#slow">慢一点</a>
-      <a href="#confuse">三件事</a>
-      <a href="#howto">怎么设</a>
+      <a href="#zero">0.4 秒</a>
+      <a href="#dns">DNS</a>
+      <a href="#tls">握手</a>
+      <a href="#http">HTTP</a>
+      <a href="#cdn">CDN</a>
+      <a href="#render">渲染</a>
+      <a href="#bill">时间账</a>
+      <a href="#debug">诊断</a>
       <a href="#challenge">挑战</a>
     </nav>
   </div>
 </div>
 
 <header class="hero wrap">
-  <div class="kicker"><span class="num">02</span> Week 02 · How Sites Store Your Password</div>
-  <h1>你的密码，网站<em>到底怎么存的</em>？</h1>
+  <div class="kicker"><span class="num">03</span> Week 03 · What Happens When You Press Enter</div>
+  <h1>一个网址，从按下回车<em>到看见页面</em></h1>
   <p class="lede">
-    每次注册，你都把一串只有自己知道的字符，交给了一个从没见过面的人保管。
-    那么在他的数据库里，你交出去的东西长什么样？如果那就是 <code>hunter2</code> 本身，
-    下一次数据库被人拖走，你的密码就会出现在某个论坛的截图里。
-    这期我们把「服务器那一端」翻过来看：它存的其实是一串谁也还原不了的<em>指纹</em> —— 中间有三个坑，每个坑都真实地让几亿人裸奔过。
+    你在地址栏敲下几个字母，回车。屏幕白了一下，然后页面出现了 —— 你大概觉得是「打开了一个文件」。
+    实际上在你看不见的那 0.4 秒里，你的电脑跨越几千公里，和五六台机器来回问了十几句话：
+    这个名字是谁、你在不在、我们怎么加密、我要的那张纸给我、纸上还缺十张图。
+    这期把这 0.4 秒<em>拆成五段</em>，让你以后骂「这网站真慢」的时候，能骂到点子上。
   </p>
   <div class="meta">
-    <span>📖 阅读 <b>约 18 分钟</b></span>
-    <span>🧩 本周挑战 <b>3 个小任务</b></span>
-    <span>💻 代码量 <b>≤ 10 行</b></span>
-    <span>🔒 所有演示 <b>本地运行</b></span>
+    <span>📖 阅读 <b>约 20 分钟</b></span>
+    <span>🧩 本周挑战 <b>3 个任务</b></span>
+    <span>💻 代码量 <b>0 行也能做</b></span>
+    <span>🔧 工具 <b>浏览器 F12</b></span>
   </div>
 </header>
 
 <main class="wrap">
 
 <!-- ============ 00 ============ -->
-<section id="why">
-  <div class="sec-head"><span class="sec-num">00</span><h2>先把问题问清楚</h2></div>
+<section id="zero">
+  <div class="sec-head"><span class="sec-num">00</span><h2>先把那 0.4 秒摊开</h2></div>
 
   <p>
-    你注册一个网站，填了邮箱和密码，点「注册」。接下来在服务器那边，有一张表多了一行。
-    <strong>那一行里到底写了什么？</strong>
+    这件事最容易被误解的地方是：以为「网站」是存在某个地方的一个文件夹，打开网址就是进去把文件取回来。
   </p>
   <p>
-    最省事的写法当然是原样记下来：<code>zhangsan@example.com | hunter2</code>。
-    代码两行就能跑通，登录时拿出来一比就行。但这么做的后果是：
-    <strong>任何能碰到这张表的人，都能直接读到你的密码</strong> —— 写这套系统的程序员、运维、外包公司、
-    以及任何一个把数据库偷走的人。
+    前半句对。<strong>你取回来的其实只有一张「施工图」（HTML）</strong>，里面写着：这里放个标题、
+    那里放张图、这个按钮点了要变蓝。油漆、瓷砖、家具（样式表、脚本、图片）是浏览器<strong>看完图纸之后，
+    又跑了好几趟分别取回来的</strong>。
   </p>
   <p>
-    所以从几十年前开始，正经的做法就只有一条：
+    所以「网页慢」经常不是那张图纸慢，而是后面那十几趟慢。而这一整条路上，一共有五个关键站点：
+  </p>
+
+  <div class="stops">
+    <div class="stop"><b>01</b><span>DNS</span><em>名字 → 地址</em></div>
+    <div class="stop"><b>02</b><span>握手</span><em>TCP + TLS</em></div>
+    <div class="stop"><b>03</b><span>HTTP</span><em>点单与上菜</em></div>
+    <div class="stop"><b>04</b><span>CDN</span><em>别从国外搬</em></div>
+    <div class="stop"><b>05</b><span>渲染</span><em>把图纸变成画面</em></div>
+  </div>
+
+  <p>
+    先记住一句贯穿全篇的话，后面的五节都在解释它：
   </p>
 
   <div class="callout">
     <span class="tag">本期的唯一核心句</span>
-    <p>网站<strong>不存你的密码</strong>，只存一串由密码算出来的<strong>指纹</strong>。指纹能核对、不能还原 —— 所以连网站自己也不知道你的密码是什么。</p>
+    <p>慢的大头往往不是「数据有多少」，而是<strong>「要来回几次」</strong>。
+    一次往返 20 毫秒是光纤的常态，一次往返 200 毫秒是跨洲的常态 —— 而这条路上，光握手就要来回好几次。</p>
   </div>
 
-  <p>
-    这句话听着像技术细节，其实推得出很多你天天遇到的现象。这期讲完，下面这些问题你都会有确定的答案：
-  </p>
+  <p>这期讲完，下面这些问题你都会有确定的答案：</p>
   <ul>
-    <li>为什么几乎所有网站只能让你「重置密码」，而不能「把原密码发给你」？</li>
-    <li>客服说「我帮你查一下你原来的密码」—— 这句话为什么应该让你立刻警惕？</li>
-    <li>地址栏那个小锁（HTTPS）到底保护了什么？它保护不了什么？</li>
-    <li>为什么「每 90 天必须改密码、必须有大写和符号」这套规矩，现在被官方建议取消了？</li>
+    <li>为什么改了域名解析要等几小时才生效？</li>
+    <li>为什么「海外服务器」不管配置多高，打开都慢半拍？</li>
+    <li>为什么第一次打开慢、刷新就飞快？</li>
+    <li>看到 <code>502</code> 和 <code>404</code>，哪个该找对方、哪个该改自己？</li>
+    <li>页面白屏好几秒，到底是网慢、服务器慢，还是浏览器在忙？</li>
   </ul>
 
-  <blockquote>你以为你在设密码，其实你在向一个陌生人交付一个「只能核对、不能反读」的凭证。</blockquote>
+  <blockquote>你不是在「打开一个文件」，你是在发起一场跨越半个地球、来回十几次的对话。</blockquote>
 </section>
 
-<!-- ============ 01 ============ -->
-<section id="hash">
-  <div class="sec-head"><span class="sec-num">01</span><h2>指纹机：把任意文字压成一串固定长度的乱码</h2></div>
+<!-- ============ 01 DNS ============ -->
+<section id="dns">
+  <div class="sec-head"><span class="sec-num">01</span><h2>第一站：DNS，把名字翻译成地址</h2></div>
 
   <p>
-    承担这个任务的工具叫<strong>哈希函数</strong>（hash function）。最好的类比是一台<strong>绞肉机</strong>：
-    肉放进去，出来的是香肠；香肠永远变不回肉。
+    <code>kinghihido.github.io</code> 这个名字，机器完全看不懂。机器只认 IP 地址，比如 <code>185.199.108.153</code>。
+    <strong>DNS（域名系统）就是那本电话簿</strong>：你报名字，它给号码。
   </p>
   <p>
-    这台机器的规矩是固定的：<strong>同一份输入，永远得到同一份输出</strong>。
-    所以网站可以这样用 —— 注册时算一次存起来，登录时拿你的输入再算一次，两次结果一样，就说明你输入的密码一样。
-    全程它都不需要知道你输的是什么。
+    为什么不用号码直接上网？因为号码会变，名字不会。GitHub 明天把服务器搬到另一个机房，IP 变了，
+    但 <code>github.io</code> 这个名字不用变。<strong>名字是给人用的稳定入口，IP 是给机器用的临时坐标</strong> ——
+    这就是域名存在的全部理由。
   </p>
+
+  <h3>查一次名字，可能要问四五个人</h3>
   <p>
-    下面这台机器是<strong>真的</strong>：它跑的是 SHA-256，和 Python 的 <code>hashlib</code>、和 Linux 的
-    <code>sha256sum</code> 算出来的是同一串字符。你现在就可以把讲义里的密码丢进去试。
+    DNS 不是一个中央大数据库，而是一层一层的「我不知道，但我知道该问谁」。
+    点下面的按钮，看一次完整的查询是怎么跑完的：
   </p>
 
   <div class="demo">
     <div class="demo-top">
       <div class="dotrow"><i></i><i></i><i></i></div>
-      <span>SHA-256 · 指纹机（纯本地，不联网）</span>
+      <span>DNS · 一次解析的六层问路</span>
     </div>
     <div class="demo-body">
-      <label class="fl" for="fpIn">随便输点什么</label>
-      <input class="txt" id="fpIn" value="hunter2" maxlength="40" spellcheck="false" autocomplete="off" />
-
-      <div style="display:grid;gap:14px;margin-top:18px">
-        <div>
-          <div class="fp-label">你输的内容 → 指纹（64 个十六进制字符）</div>
-          <div class="fp-grid" id="fpA"></div>
-        </div>
-        <div>
-          <div class="fp-label">
-            末尾多打一个 <code>!</code> → 指纹
-            <span class="badge" id="fpDiffN"></span>
-          </div>
-          <div class="fp-grid" id="fpB"></div>
-        </div>
+      <div class="pills" style="margin-bottom:14px">
+        <button class="pill active" id="btnResolve">解析 kinghihido.github.io</button>
+        <button class="pill" id="btnAgain">再访问一次（缓存还在）</button>
       </div>
-      <p class="note">橙色格子 = 和上面不一样的位置。试着把最后的 <code>2</code> 删掉、或者只加一个空格，看变化有多大。</p>
+      <div class="dns-list" id="dnsList"></div>
+      <div class="dns-total">
+        <span id="dnsVerdict">点上面的按钮开始</span>
+        <span>本次解析耗时 <b id="dnsTotal">—</b> ms</span>
+      </div>
+      <p class="note">「再访问一次」按的是同一个按钮，但你会发现它<strong>一层都没问</strong> —— 这就是缓存。</p>
     </div>
   </div>
 
   <p>
-    你应该立刻注意到一件事：<strong>你只改了一个字符，下半张图几乎全变了。</strong>
-    这就是哈希的第二个脾气，它有个专门的名字叫<strong>雪崩效应</strong>（avalanche effect）——
-    输入里翻动一片雪花，输出就像雪崩一样面目全非。刚才那个演示里，64 个字符中有 60 个左右会变。
+    第一次要跑一整圈，第二次是 <strong>0 毫秒</strong>。这个差别，就是后面所有「快」的来源：
+    <strong>缓存不是让事情变快，是让事情不用发生。</strong>
   </p>
 
-  <h3>它必须同时满足三条</h3>
-  <div class="tbl-scroll">
-  <table>
-    <thead><tr><th>性质</th><th>人话解释</th><th>如果没有它会怎样</th></tr></thead>
-    <tbody>
-      <tr>
-        <td><strong>定长</strong></td>
-        <td>不管输入是 1 个字符还是 1 万字，输出永远是 64 个十六进制字符（256 位）</td>
-        <td>数据库得为「有人用了一篇论文当密码」留出巨大字段</td>
-      </tr>
-      <tr>
-        <td><strong>单向</strong></td>
-        <td>能从密码算出指纹，不能从指纹倒推密码 —— 因为这是「有损压缩」，原始信息已经丢了</td>
-        <td>偷到数据库就等于偷到所有明文密码</td>
-      </tr>
-      <tr>
-        <td><strong>雪崩</strong></td>
-        <td>输入变一个字符，输出变一大半</td>
-        <td>攻击者能靠「指纹有多像」猜出你的密码大概长什么样</td>
-      </tr>
-    </tbody>
-  </table>
-  </div>
+  <h3>三个天天遇到、但很少人想明白的现象</h3>
+
+  <p>
+    <strong>① 为什么改了 DNS 解析，要等几小时甚至一天才生效？</strong><br />
+    因为路上每一层都缓存了旧答案。而「这个答案可以记多久」是域名主人自己设的，叫 <strong>TTL</strong>
+    （上面演示里那句「可以记 300 秒」）。你改了记录，但全世界几十万台缓存服务器手里的旧答案还没过期。
+    所谓「DNS 生效慢」，本质是<strong>在等别人手里的缓存过期</strong>。所以正经的迁移流程是：先把 TTL 调小，等一天，
+    再改记录 —— 这样全世界只需要等几分钟。
+  </p>
+
+  <p>
+    <strong>② 为什么「网站打不开」有时候换个网络就好了？</strong><br />
+    如果名字查不到，浏览器连门都找不到，提示通常是「找不到服务器 / DNS 解析失败」。
+    这时候开手机热点试一下：如果立刻能开，问题就锁定在解析这一层（本地 DNS 缓存、hosts 文件、或者你连的那个 DNS 恰好抽风），
+    <strong>跟网站本身一点关系都没有</strong>。
+  </p>
+
+  <p>
+    <strong>③ 一个域名不等于一台服务器。</strong><br />
+    <code>baidu.com</code> 背后是成千台机器，DNS 每次可能给你不同的 IP（叫负载均衡）；
+    反过来，一台服务器上也可能住着几百个网站（叫虚拟主机）。
+    所以「同一个 IP 上有几万个网站」是正常的，不是有人蹭你的机器。
+  </p>
 
   <div class="callout">
-    <span class="tag">注意一个用词陷阱</span>
-    <p>很多网站写「我们采用 <strong>MD5 加密</strong>存储密码」。<strong>加密</strong>和<strong>哈希</strong>是两件事：
-    加密是<em>可逆</em>的（有钥匙就能还原），哈希是<em>不可逆</em>的。把哈希说成加密，通常说明写这句话的人不太懂，
-    或者他在（不明智地）真的用了可逆的加密 —— 那意味着公司自己就能看到你的密码。两种都不是好信号。</p>
+    <span class="tag">顺手一个实用技巧</span>
+    <p>在能开机的电脑上，<code>hosts</code> 文件是 DNS 的最前面一站 —— 你可以手动把某个域名写死到某个 IP，
+    它优先级高于所有 DNS 服务器。这就是「本地测试」「屏蔽某个网站」最土也最有效的办法。
+    Windows 在 <code>C:\Windows\System32\drivers\etc\hosts</code>，Mac 在 <code>/etc/hosts</code>。</p>
   </div>
 </section>
 
-<!-- ============ 02 ============ -->
-<section id="rules">
-  <div class="sec-head"><span class="sec-num">02</span><h2>顺着这三条，推出四个日常现象</h2></div>
+<!-- ============ 02 握手 ============ -->
+<section id="tls">
+  <div class="sec-head"><span class="sec-num">02</span><h2>第二站：握手，先建一条路，再上一把锁</h2></div>
 
-  <p>理论讲完了，现在来收利息。上面那三条性质，每一条都能解释一个你遇到过但没想明白的现象。</p>
-
-  <h3>推论一：网站没法「告诉你」原密码，只能让你重置</h3>
   <p>
-    因为库里的指纹<strong>推不回</strong>密码。所以你点「忘记密码」时，收到的不是「您的密码是 hunter2」，
-    而是一个<strong>一次性重置链接</strong>。这不是网站小气，是它真的不知道。
-  </p>
-  <p>
-    反过来说：<strong>如果某个网站能把原密码发给你，它就是在明文存储或者可逆加密。</strong>
-    这不是方便，这是它整个安全体系已经塌了 —— 你该做的是去把这个密码在别处也改掉（因为你很可能到处用了同一个）。
+    拿到 IP 之后，浏览器还不能直接喊话。网络是不可靠的：包会丢、会乱序、会重复。
+    TCP 在不可靠的底子上做出一根「看起来可靠」的管子，第一件事是三次握手：
   </p>
 
-  <h3>推论二：「客服帮你查密码」是不能说的谎</h3>
+  <div class="formula"><span class="cm"># 三次握手 —— 代价是一个「来回」，不是三次传输</span>
+你   →  服务器   SYN       <span class="cm">（在吗？我想连你）</span>
+服务器 →  你      SYN+ACK   <span class="cm">（在，我听到你了，你听得到我吗？）</span>
+你   →  服务器   ACK       <span class="cm">（听得到，开始吧）</span>
+
+<span class="cm"># 一次 RTT 有多长</span>
+家里光纤 / Wi-Fi   10 ~ 30 ms
+4G / 5G           30 ~ 60 ms
+卫星上网          600 ms 以上</div>
+
   <p>
-    同一个道理。真正的客服后台最多能看到「这个账号存在」「最近登录时间」「已绑定手机」，
-    看不到密码。任何声称能看到密码的系统，都把用户密码以一种可还原的形式存着了。
+    连接通了，还不算安全 —— 中间任何一个路由器都能看见你在传什么。所以 HTTPS 要在管子里再套一层加密，
+    这叫 <strong>TLS 握手</strong>：验证对方证书是不是真的、协商出一把只有双方知道的钥匙。
+    好消息是 TLS 1.3 把这一步压到了<strong>一个来回</strong>（老版本要两个）。
   </p>
 
-  <h3>推论三：正因为它算不出你的密码，所以它可以安全地「比一比」</h3>
+  <h3>为什么工程师对「几个来回」这么抠</h3>
   <p>
-    网站想提醒你「这个密码已经在公开泄露库里出现过」，怎么办？它可以只发你指纹的<strong>一小段</strong>去查，
-    对方回答「以这段开头的指纹有这些」，然后你在本地比对。<strong>全程对方不知道完整指纹，更不知道密码。</strong>
-    这就是 <a href="https://haveibeenpwned.com/Passwords" target="_blank" rel="noopener">Have I Been Pwned</a> 查密码时用的方法（叫 k-匿名）。
-    你可以现在就去试 —— 它是安全的，也是我这周挑战里的第一个任务。
+    算一次就懂了：一个页面如果对 30 个不同域名各建立一次连接，每次 3 个来回，
+    在卫星网络上就是 30 × 3 × 600 毫秒 ≈ <strong>54 秒</strong>。这不是夸张，这是很多老网站在偏远地区
+    真的打不开的原因。
+  </p>
+  <p>
+    反过来，一个 1 KB 的请求和一个 1 MB 的请求，在 100 Mbps 宽带上传输时间只差 80 毫秒；
+    但每多一次跨洲往返就是 200 毫秒起。<strong>所以优化的方向经常不是「减少数据」，而是「减少来回」。</strong>
+    HTTP/2 把多个请求塞进一条连接、HTTP/3 连握手都省了、TLS 1.3 把两次往返压成一次 —— 全是在干这件事。
   </p>
 
-  <h3>推论四：从库里看不出你的密码有多长</h3>
+  <h3>顺手算一个物理极限</h3>
   <p>
-    因为定长。一个用 8 位密码的人和一个用 40 位密码的人，指纹都是 64 个字符。
-    这是个很实在的好处：泄露时攻击者不知道谁的密码值得优先硬啃。
+    光在光纤里的速度大约是 20 万公里/秒（不是真空的 30 万，玻璃里会慢三分之一）。
+    <strong>一个来回 20 毫秒，意味着服务器离你大约 2000 公里。</strong>
+    北京到上海约 1200 公里；北京到洛杉矶约 10000 公里，单程 50 毫秒，一个来回 100 毫秒。
   </p>
 
   <div class="callout warn">
-    <span class="tag">所以「指纹」这个词要拆开看</span>
-    <p>指纹相似 = 密码相同；指纹不同 = 密码一定不同。它唯一能泄露的信息，就是「两个账号是不是同一个密码」。
-    这也是为什么你在同一个网站改密码时，系统会拦你「新密码不能和旧密码相同」—— 它只要比一下指纹就知道。</p>
+    <span class="tag">所以「海外服务器慢」不是配置问题</span>
+    <p>打开一个美国网站，不管它服务器多强，都至少比国内站慢 100 毫秒 ——
+    因为数据要跨太平洋跑一趟再跑回来。这不是优化能解决的，<strong>这是光速</strong>。
+    下一节讲的 CDN，就是人类对付光速的唯一办法。</p>
   </div>
 </section>
 
-<!-- ============ 03 加盐 ============ -->
-<section id="salt">
-  <div class="sec-head"><span class="sec-num">03</span><h2>第一个坑：只存指纹，等于白干</h2></div>
+<!-- ============ 03 HTTP ============ -->
+<section id="http">
+  <div class="sec-head"><span class="sec-num">03</span><h2>第三站：HTTP，一张递进去的纸条</h2></div>
 
-  <p>
-    假设某个网站做对了上一节：只存指纹。它安全了吗？<strong>没有。</strong>因为指纹有一个致命的特点：
-    <strong>同一个密码，指纹永远一模一样。</strong>
-  </p>
-  <p>
-    这意味着攻击者根本不需要「破解」任何东西。他只要提前算好一张巨大的对照表 ——
-    <em>常见密码 → 对应的指纹</em>，几亿行 —— 然后把偷来的指纹往里一扔，对上的那一行就写着明文。
-    这张表叫<strong>彩虹表</strong>。而"常见密码"的分布极度集中：全球每年泄露的密码统计里，前十名永远是
-    <code>123456</code>、<code>password</code>、<code>qwerty</code> 这些。也就是说，<strong>偷来一千万条指纹，几秒钟就能还原出其中几百万条</strong>。
-  </p>
-  <p>
-    更糟的是第二个问题：<strong>能一次破一片</strong>。如果一百万个用户都用 <code>123456</code>，
-    他们的指纹全都一样，破解一条等于破解一百万个。
-  </p>
+  <p>路修好了、锁上好了，浏览器终于可以说话。它说的话非常朴素，就是一张纸条：</p>
 
-  <h3>解药：给每个人撒一把不同的盐</h3>
-  <p>
-    做法简单到有点好笑：注册的时候，随机生成一小段字符（比如 16 个十六进制的乱码），叫<strong>盐</strong>（salt）。
-    算指纹的时候<strong>先拼上盐</strong>：算的不是 <code>密码</code> 的指纹，而是 <code>盐 + 密码</code> 的指纹。
-    然后把<strong>盐和指纹一起明文存进数据库</strong>。
-  </p>
+  <div class="formula"><span class="cm"># 请求（你递进去的纸条）</span>
+<span class="hl">GET</span> /index.html HTTP/1.1        <span class="cm">← 我要什么（方法 + 路径 + 版本）</span>
+Host: kinghihido.github.io        <span class="cm">← 我要找哪一家（同一 IP 上可能住着几百家）</span>
+User-Agent: Chrome / Windows      <span class="cm">← 我是谁（顺便让网站决定给你哪个版本）</span>
+Accept-Encoding: gzip, br         <span class="cm">← 我能解压，你压缩了再发，省流量</span>
+Cookie: session=abc123            <span class="cm">← 上次你给我那张小纸条，我还带着</span>
 
-  <div class="formula"><span class="cm"># 两种存法的区别，就一行</span>
-不加盐： 存  <span class="hl">sha256( 密码 )</span>              <span class="cm">← 同一密码，全球指纹都一样</span>
-加盐：   存  <span class="hl">盐</span>  +  <span class="hl">sha256( 盐 + 密码 )</span>       <span class="cm">← 同一密码，每个账号指纹都不同</span>
+<span class="cm"># 响应（它递回来的纸条 + 包裹）</span>
+HTTP/1.1 <span class="hl">200 OK</span>                   <span class="cm">← 状态码：办成了</span>
+Content-Type: text/html           <span class="cm">← 包裹里是什么</span>
+Cache-Control: max-age=600        <span class="cm">← 这个可以缓存 10 分钟</span>
+                                  <span class="cm">↓ 空一行，然后是真正的 HTML</span></div>
 
-登录时： 拿出来 → 用库里的盐重算一次 → 和库里的指纹比 → 一样就放行</div>
-
-  <p>下面左边是「没加盐」的写法，右边是「加盐」的写法，同一个密码同时走一遍：</p>
-
-  <div class="demo">
-    <div class="demo-top">
-      <div class="dotrow"><i></i><i></i><i></i></div>
-      <span>SALT · 加盐前后对照</span>
-    </div>
-    <div class="demo-body">
-      <label class="fl" for="saltIn">同一个密码，注册两个账号</label>
-      <input class="txt" id="saltIn" value="iloveyou123" maxlength="30" spellcheck="false" autocomplete="off" />
-
-      <div class="col2">
-        <div class="panel bad">
-          <div class="panel-t">✗ 没加盐（教科书反面例子）</div>
-          <div class="kv"><b>数据库里存的</b><span id="h1">…</span></div>
-          <p class="verdict" id="hitBox">…</p>
-          <div class="rbt" id="rbt"></div>
-        </div>
-        <div class="panel good">
-          <div class="panel-t">✓ 加盐（正确做法）</div>
-          <div class="kv"><b>存的盐</b><span id="saltShow">…</span></div>
-          <div class="kv" style="margin-top:6px"><b>存的指纹</b><span id="h2">…</span></div>
-          <p class="verdict safe" style="margin-top:10px">
-            同一个密码，每次注册指纹都完全不同 →<br />攻击者必须<strong>一个账号一个账号单独啃</strong>。
-          </p>
-          <button class="pill" id="btnResalt" style="margin-top:10px">换个盐，再注册一次 ↻</button>
-        </div>
-      </div>
-      <p class="note">左栏那张小表只有 6 行。真实的彩虹表有几亿行，你的密码只要在「全球最常见的 100 万个密码」里，就等于没设。</p>
-    </div>
-  </div>
-
-  <p>
-    盐为什么有用？因为<strong>盐不需要保密</strong>。它的作用不是「藏起来」，而是<strong>打散</strong>：
-    让每个账号的指纹都独一无二，从而让你提前算好的表<strong>一次性全部作废</strong>。
-    攻击者面对一千万条指纹，只能一条一条单独试，成本从「算一次」变成「算一千万次」。
-  </p>
-
-  <div class="callout danger">
-    <span class="tag">但是，盐救不了弱密码</span>
-    <p>这句话很重要，很多人被「加盐」这个词骗了。<strong>如果你的密码是 <code>123456</code>，加了盐也只是让攻击者多花几毫秒</strong> ——
-    他试着把 <code>123456</code> 拼上你的盐算一遍，一比对，中了。盐防的是「批量」和「查表」，防不了「你的密码本身太好猜」。
-    防弱密码是另一套机制（第 06 节讲的那几条），别指望盐代劳。</p>
-  </div>
-</section>
-
-<!-- ============ 04 慢哈希 ============ -->
-<section id="slow">
-  <div class="sec-head"><span class="sec-num">04</span><h2>第二个坑：指纹算得太快了</h2></div>
-
-  <p>
-    现在攻击者没法查表了，只能老老实实一个个试。那他试得有多快？
-  </p>
-  <p>
-    SHA-256 的设计目标是<strong>快</strong> —— 它本来是用来校验文件完整性的，工程师花了大力气让它一秒能算几十亿次。
-    这对存密码来说正好是灾难：一块高端显卡每秒能试<strong>几十亿到上百亿</strong>个候选密码。
-  </p>
-  <p>
-    算一笔账你就懂了。<strong>8 位小写字母</strong>一共有 26⁸ ≈ 2088 亿种组合，听着很多吧？
-    在这个速度下，<strong>几分钟就试完了</strong>。
-  </p>
-
-  <h3>解药：故意把它做慢</h3>
-  <p>
-    于是有人反着来：既然攻击者的唯一武器是「快」，那我们就发明<strong>专门用来慢的哈希</strong>。
-    这类函数（最常用的是 <strong>bcrypt</strong>，新的还有 scrypt 和 argon2）算一次要 <strong>0.05 ~ 0.5 秒</strong>，
-    而且「慢多少」是可以调的 —— 电脑变快了，就把参数调高一档，让它永远慢在人类能忍、机器受不了的区间。
-  </p>
+  <h3>状态码：三秒看懂</h3>
+  <p>不用背几十个，记住「谁的问题」就够了：</p>
 
   <div class="tbl-scroll">
   <table>
-    <thead><tr><th></th><th class="num">SHA-256</th><th class="num">bcrypt（成本 12）</th></tr></thead>
+    <thead><tr><th>开头</th><th>谁的问题</th><th>常见成员</th></tr></thead>
     <tbody>
-      <tr><td>算一次的时间</td><td class="num">约 0.00000003 秒</td><td class="num">约 0.25 秒</td></tr>
-      <tr><td>你登录时的感受</td><td class="num">毫无感觉</td><td class="num">毫无感觉</td></tr>
-      <tr><td>攻击者一天能试</td><td class="num">约 8.6 万亿次</td><td class="num">约 35 万次</td></tr>
-      <tr><td>设计目标</td><td class="num">尽快算完</td><td class="num">尽量算不完</td></tr>
+      <tr><td><strong>2xx</strong> 成功</td><td>都没问题</td><td><code>200</code> 正常；<code>204</code> 成功但没内容</td></tr>
+      <tr><td><strong>3xx</strong> 搬家</td><td>你去别处</td><td><code>301</code> 永久搬走；<code>302</code> 临时搬走；<code>304</code> <strong>你手里的没过期，直接用</strong></td></tr>
+      <tr><td><strong>4xx</strong> 你的问题</td><td>请求不对</td><td><code>401</code> 没登录；<code>403</code> 没权限；<code>404</code> 没这个页面；<code>429</code> 请求太快被限流</td></tr>
+      <tr><td><strong>5xx</strong> 它的问题</td><td>服务器出事</td><td><code>500</code> 代码炸了；<code>502</code> 上游没响应；<code>503</code> 太忙；<code>504</code> 上游超时</td></tr>
     </tbody>
   </table>
   </div>
 
   <p>
-    看最后两行：同一台机器，攻击速度差了<strong>两千五百万倍</strong>。而对正常用户来说，两者都是「输完密码，页面跳一下」——
-    你根本察觉不到 0.25 秒。这就是设计者的巧思：<strong>把成本全部转移给攻击者</strong>。
+    <strong>4 开头是你敲错了或者没权限，5 开头是它自己出事了。</strong>
+    看到 502 / 504 就别再刷新了 —— 那是对方的后端在崩，刷新一百次也一样，等十分钟通常自己好。
   </p>
 
-  <h3>那到底多长的密码算够？拖一下看看</h3>
+  <h3>Cookie：为什么关掉浏览器再打开，还是登录状态</h3>
   <p>
-    下面这个小工具按「每秒一百亿次猜测」（一块高端显卡的量级）来估算。
-    拖动滑块改长度，点上面的按钮改字符集，看指数怎么变：
-  </p>
-
-  <div class="demo">
-    <div class="demo-top">
-      <div class="dotrow"><i></i><i></i><i></i></div>
-      <span>CRACK TIME · 每秒一百亿次</span>
-    </div>
-    <div class="demo-body">
-      <div class="pills" id="csPills">
-        <button class="pill" data-n="10">纯数字（10 个）</button>
-        <button class="pill active" data-n="26">小写字母（26）</button>
-        <button class="pill" data-n="36">小写 + 数字（36）</button>
-        <button class="pill" data-n="62">大小写 + 数字（62）</button>
-        <button class="pill" data-n="94">再加符号（94）</button>
-      </div>
-      <div class="range-row">
-        <span class="lbl">长度</span>
-        <input type="range" id="lenRange" min="4" max="20" step="1" value="8" />
-        <span class="lbl" id="lenVal" style="min-width:38px;text-align:right">8 位</span>
-      </div>
-      <div class="bigtime">
-        <div class="bt-top">全部试完需要</div>
-        <div class="bt-main" id="crackMain">…</div>
-        <div class="bt-sub" id="crackSub">…</div>
-      </div>
-      <p class="note">
-        ⚠️ 这个估算假设密码是<strong>完全随机</strong>抽出来的。人挑的密码从来不是随机的 ——
-        带名字、生日、<code>5201314</code>、键盘上一横排，实际会被快上好几个数量级。所以这个数字是「最好情况」，不是你的真实情况。
-      </p>
-    </div>
-  </div>
-
-  <p>
-    拖几下你会发现一件事：<strong>长度的影响是乘法级的，字符集的影响是加法级的。</strong>
-    每多一位，可能性乘以字符集大小；而把字符集从 26 扩到 62，只是让基数大了一点。
-    这就是为什么现在的建议是「<strong>先把长度堆够，再谈花哨</strong>」。
+    HTTP 本身是<strong>失忆的</strong>：每个请求都是独立的，服务器不记得上一个请求是谁发的。
+    所以登录成功后，服务器在响应里塞一句 <code>Set-Cookie: session=abc123</code>，浏览器存下来，
+    之后每次请求自动带上。
   </p>
 
   <div class="callout">
-    <span class="tag">一个反直觉的对比</span>
-    <p><code>P@ssw0rd!</code> 看起来复杂（有大写、有符号、有数字），但它只是 <code>password</code> 的一种常见变形 ——
-    所有破解字典里都排在前几页，<strong>真实破解时间是 0 秒</strong>。
-    而 <code>咖啡凉了才想起减肥</code> 看着像一句废话，却不在任何英文词典里，长度 11，
-    中文句子的组合空间大到无法枚举 —— <strong>它比前者强几十个数量级，而且你好记。</strong></p>
+    <span class="tag">一句话说透</span>
+    <p><strong>「登录状态」本质上就是一张每次都要出示的通行证。</strong>
+    它不在服务器脑子里，而在你浏览器的一个小文件里 —— 所以清掉 Cookie，你就掉登录了；
+    所以别人拷走你的 Cookie，他就变成了你（这也是为什么公共电脑上一定要退出登录）。</p>
+  </div>
+
+  <p>顺带解释两个小现象：</p>
+  <ul>
+    <li><strong>Cookie 为什么不能存太多？</strong>因为每个请求都要带上它。多几百字节，乘以几十个请求就不是小数。</li>
+    <li><strong>为什么图片、CSS 常放在另一个域名下？</strong>那样就不用带 Cookie —— 这些静态文件根本不需要知道你是谁。</li>
+  </ul>
+</section>
+
+<!-- ============ 04 CDN ============ -->
+<section id="cdn">
+  <div class="sec-head"><span class="sec-num">04</span><h2>第四站：CDN，人类对付光速的唯一办法</h2></div>
+
+  <p>
+    假设你的服务器在硅谷，用户在北京。就算服务器是全世界最快的，也没用：数据得跨太平洋，
+    一个来回 100 毫秒，每次握手、每个请求都要走这一趟。
+  </p>
+  <p>
+    <strong>CDN（内容分发网络）解决的是「距离」问题，不是「速度」问题。</strong>
+    它在全世界放几百个机房，把你的静态文件复制过去。北京的用户由北京或天津的节点服务，
+    一个来回 5 毫秒。
+  </p>
+
+  <h3>它的两个动作</h3>
+  <ol>
+    <li><strong>就近</strong>：DNS 会看你的来源，把你解析到最近的节点（或者用 Anycast，让网络路由自己把你带到最近那台）。</li>
+    <li><strong>缓存</strong>：节点第一次没内容时，会「回源」去你的服务器取一次，然后存下来。之后一万个用户来，都直接由它给。</li>
+  </ol>
+
+  <p>
+    所以 CDN 的效果全看一个数字：<strong>命中率</strong>。图片、CSS、JS、视频这类静态资源，命中率能到 95% 以上；
+    而「你的购物车」「你的订单列表」这种每个人都不一样的内容，<strong>根本无法缓存</strong>，只能老老实实回源。
+    这就是为什么 CDN 厂商主打「静态加速」，动态页面还得靠别的手段。
+  </p>
+
+  <div class="callout">
+    <span class="tag">一个十秒钟的小验证</span>
+    <p>F12 → Network → 随便点一个图片，看响应头里有没有 <code>cf-cache-status: HIT</code> 或
+    <code>x-cache: HIT</code> 之类的字段。有 <strong>HIT</strong>，说明你被 CDN 服务了；
+    看到 <strong>MISS</strong>，说明这个节点上还没有，它刚替你去源站取了一次。</p>
+  </div>
+
+  <div class="callout warn">
+    <span class="tag">但 CDN 救不了所有人</span>
+    <p>如果你的最后一公里是卫星（600 毫秒），CDN 把服务器搬到隔壁也没用 —— 信号还得飞一趟太空。
+    <strong>它省的是「跨城跨洲」，省不掉「上天下地」。</strong>这是下一节模拟器里可以亲手验证的事。</p>
   </div>
 </section>
 
-<!-- ============ 05 三件事 ============ -->
-<section id="confuse">
-  <div class="sec-head"><span class="sec-num">05</span><h2>把三件常被混为一谈的事分开</h2></div>
+<!-- ============ 05 渲染 ============ -->
+<section id="render">
+  <div class="sec-head"><span class="sec-num">05</span><h2>第五站：浏览器，收到图纸之后才开始干活</h2></div>
+
+  <p>HTML 到你的电脑上了，但屏幕上还是白的。浏览器要做的活比大多数人想的多：</p>
+
+  <div class="formula"><span class="cm"># 关键渲染路径</span>
+HTML 文本  →  解析成 <span class="hl">DOM 树</span>       <span class="cm">（页面的骨架）</span>
+CSS  文本  →  解析成 <span class="hl">CSSOM</span>        <span class="cm">（每个元素长什么样）</span>
+                    ↓ 合起来
+              渲染树（只包含要显示的东西）
+                    ↓
+              <span class="hl">布局 Layout</span>        <span class="cm">（每个盒子放哪、多大）</span>
+                    ↓
+              <span class="hl">绘制 Paint</span>         <span class="cm">（把颜色、文字、图片画成像素）</span>
+                    ↓
+              <span class="hl">合成 Composite</span>     <span class="cm">（分层拼成你看到的画面）</span></div>
+
+  <h3>两个最常见的卡点</h3>
+  <p>
+    <strong>① CSS 会挡住渲染。</strong>浏览器必须等 CSS 下载并解析完才敢画第一笔 ——
+    因为先画一遍再改样式，用户会看到画面「闪一下重排」，比白屏更难受。
+    所以 CSS 要尽量小、尽量早、放在 <code>&lt;head&gt;</code> 里。
+  </p>
+  <p>
+    <strong>② <code>&lt;script&gt;</code> 默认会挡住解析。</strong>浏览器遇到一个普通脚本，会<strong>停下来</strong>：
+    下载、执行完，才继续解析后面的 HTML。一个慢脚本就能让整个页面白屏几秒。
+    解法是 <code>defer</code>（下载不挡解析，解析完按顺序执行）和 <code>async</code>（下载不挡，下完立刻执行）。
+    这也是为什么老教程让你「把 script 放在 <code>&lt;/body&gt;</code> 前面」—— 那是没有 defer 时代的土办法。
+  </p>
+
+  <h3>白屏的三种真凶</h3>
+  <div class="tbl-scroll">
+  <table>
+    <thead><tr><th>现象</th><th>多半是</th><th>怎么确认</th></tr></thead>
+    <tbody>
+      <tr><td>一直白，地址栏转圈</td><td>网络段：DNS 卡住、TTFB 高、HTML 还没下来</td><td>F12 Network 看那根最长的条</td></tr>
+      <tr><td>骨架出来了但样式全无</td><td>CSS 没下载完，或被挡住了</td><td>Network 里看 .css 的状态和耗时</td></tr>
+      <tr><td>页面能看见但一动不动</td><td>一个同步脚本在等一个永远不返回的接口</td><td>Console 报错 / Network 里有个请求 pending</td></tr>
+      <tr><td>文字迟迟不出现</td><td>网页字体文件太大，浏览器在等字体</td><td>Network 里看 .woff2 的大小</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<!-- ============ 06 时间账 ============ -->
+<section id="bill">
+  <div class="sec-head"><span class="sec-num">06</span><h2>把五站串起来：时间到底花在哪</h2></div>
 
   <p>
-    讲到这里，很多人会把三个东西搅在一起：HTTPS、哈希、加密。它们解决的是<strong>完全不同</strong>的问题，
-    分清楚了，你看安全新闻就不会被人牵着走。
+    下面这个模拟器把刚才五段拼成一张「瀑布图」，按真实的先后顺序一段段亮起来。
+    先什么都不动，直接点「重播」，看一遍完整的首次访问。
+  </p>
+
+  <div class="demo" id="journey">
+    <div class="demo-top">
+      <div class="dotrow"><i></i><i></i><i></i></div>
+      <span>WATERFALL · 一次访问的分段计时（模拟）</span>
+    </div>
+    <div class="demo-body">
+      <div class="ctl-row">
+        <div class="pills" id="netPills" style="margin-bottom:10px">
+          <button class="pill active" data-rtt="20">家庭光纤 / Wi-Fi</button>
+          <button class="pill" data-rtt="40">4G / 5G</button>
+          <button class="pill" data-rtt="600">卫星上网</button>
+        </div>
+      </div>
+      <div class="tgs">
+        <button class="tg on" id="tgHttps">HTTPS</button>
+        <button class="tg" id="tgCdn">CDN</button>
+        <button class="tg" id="tgCache">强缓存命中（回访）</button>
+      </div>
+
+      <div class="wl" id="wl"></div>
+
+      <div class="wl-foot">
+        <div class="clock"><span id="clock">0</span><em>ms</em></div>
+        <div class="wl-note" id="wlNote">…</div>
+        <button class="pill" id="btnReplay">重播 ↻</button>
+      </div>
+      <p class="note" id="wlSum"></p>
+    </div>
+  </div>
+
+  <p>
+    按一遍三个开关，你会得到三个结论，全是前面五节讲过的：
+  </p>
+  <ul>
+    <li><strong>关掉 HTTPS</strong>：省下正好一个来回。这就是为什么「全站 HTTPS」是有代价的 —— 但今天这个代价必须付。</li>
+    <li><strong>打开 CDN</strong>：握手和首字节都变短了，但最后「拉取资源」那段还在。<strong>它省的是跨城跨洲，不是你的宽带。</strong></li>
+    <li><strong>打开强缓存</strong>：前三段直接消失，只剩两行。这就是「第二次访问飞快」的真相 —— <strong>不是变快了，是大部分事没发生。</strong></li>
+  </ul>
+
+  <p>
+    还可以把网络切成「卫星」再点一遍：同样五个步骤，总时间会变成七倍。
+    <strong>步骤没多、数据没多，只是每个来回都变贵了。</strong>
+  </p>
+
+  <div class="callout">
+    <span class="tag">这张图最重要的一句话</span>
+    <p>没有任何一段独占八成时间。每段都占 10%~30%，所以「网站慢」永远要做体检，
+    不能拍脑袋猜。这也解释了为什么很多优化「感觉没用」—— 你优化了下载体积，
+    可瓶颈其实在服务器等数据库。</p>
+  </div>
+
+  <p>
+    想自己算一遍？仓库里有一个零依赖的小脚本，把这个模型写成了 30 行 Python：
+  </p>
+
+  <div class="formula"><span class="cm"># week-03/latency_budget.py —— 你可以改 RENDER、RTT，看占比怎么变</span>
+$ python latency_budget.py --net 4g --cdn
+网络：4g（RTT 40 ms）  HTTPS：是  CDN：是  缓存：未命中
+
+阶段                   本段      累计  占比
+----------------------------------------------------
+DNS 解析             20ms     20ms  #######   8%
+TCP 握手             20ms     40ms  #######   8%
+TLS 握手             20ms     60ms  #######   8%
+请求 + 首字节           28ms     88ms  #########   11%
+下载 HTML            15ms    103ms  #####    6%
+拉取 CSS/JS/图        60ms    163ms  ####################   24%
+解析与渲染              90ms    253ms  ##############################   36%
+----------------------------------------------------
+合计 253 ms，最重的一段是「解析与渲染」（90 ms）</div>
+</section>
+
+<!-- ============ 07 诊断 ============ -->
+<section id="debug">
+  <div class="sec-head"><span class="sec-num">07</span><h2>诊断：网页变慢时，该看哪一段</h2></div>
+
+  <p>
+    打开开发者工具（F12）→ <strong>Network</strong> 面板 → 刷新页面。你会看到一张瀑布图：
+    每一行是一个请求，横向的彩色条是它的各个阶段，鼠标悬停能看到毫秒数。
+  </p>
+  <p>
+    这张图上有三种最典型的「形状」，看形状就知道该怪谁：
   </p>
 
   <div class="tbl-scroll">
   <table>
-    <thead><tr><th>机制</th><th>保护哪一段</th><th>防谁</th><th>能还原吗</th></tr></thead>
+    <thead><tr><th>形状</th><th>含义</th><th>该优化什么</th></tr></thead>
     <tbody>
-      <tr>
-        <td><strong>HTTPS</strong>（地址栏的小锁）</td>
-        <td>你的浏览器 → 网站服务器，这一段<strong>路上</strong></td>
-        <td>同一个 WiFi 下的陌生人、运营商、蹭网的路由器</td>
-        <td>不涉及 —— 它只是把包裹封起来</td>
-      </tr>
-      <tr>
-        <td><strong>哈希 + 盐 + 慢哈希</strong></td>
-        <td>网站服务器<strong>内部</strong>，数据库里</td>
-        <td>偷走数据库的人、内部员工</td>
-        <td><strong>不能</strong>（这就是全部意义）</td>
-      </tr>
-      <tr>
-        <td><strong>加密</strong>（对称/非对称）</td>
-        <td>任何需要<strong>以后还能读出来</strong>的数据</td>
-        <td>没有钥匙的人</td>
-        <td><strong>能</strong>，有钥匙就行</td>
-      </tr>
+      <tr><td>前面空一大段才开始</td><td>排队（Queueing / Stalled），同时发的请求太多</td><td>减少请求数、合并文件、懒加载</td></tr>
+      <tr><td>中间紫/绿色条很长</td><td>等首字节（TTFB），服务器在思考</td><td>后端、数据库、缓存 —— 换宽带没用</td></tr>
+      <tr><td>后面蓝色条很长</td><td>下载慢，文件太大或带宽太小</td><td>压缩、换格式（WebP）、上 CDN</td></tr>
     </tbody>
   </table>
   </div>
 
-  <p>
-    看清楚这张表，你就能拆掉两个很常见的误解：
-  </p>
+  <p>下面这个「自查表」按症状查。点一个最像你现在遇到的情况：</p>
 
-  <h3>误解一：「有绿锁，说明这网站靠谱」</h3>
-  <p>
-    小锁只保证<strong>你和它之间的对话没被第三方偷听</strong>。它<strong>完全不保证</strong>这家公司怎么存你的密码、
-    会不会把你的数据卖给第三方、跑路时会不会带走你的信息。
-    一个钓鱼网站同样可以申请到证书、挂上小锁 —— 它保护的是「骗子和你之间的通信」，一点没帮到你。
-  </p>
-
-  <h3>误解二：「密码是加密存储的，很安全」</h3>
-  <p>
-    如果真的是「加密」（可逆），那公司自己就能解出来 —— 也就意味着任何能进后台的人都能解出来，
-    任何拿到钥匙的人都能解出来。<strong>密码不该是能被还原的东西</strong>，这也是为什么第 01 节强调「哈希不是加密」。
-  </p>
-
-  <div class="callout">
-    <span class="tag">所以「忘记密码」的邮件里没有密码</span>
-    <p>它给的是一串带时效的随机链接。点开 → 验证是你本人 → 让你<strong>设一个新的</strong>。
-    整条链路里，密码从头到尾只在你自己的设备上存在过一瞬间，服务器从来没有「知道」过它。</p>
+  <div class="demo">
+    <div class="demo-top">
+      <div class="dotrow"><i></i><i></i><i></i></div>
+      <span>TRIAGE · 网页不对劲，先查哪儿</span>
+    </div>
+    <div class="demo-body">
+      <div class="pills" id="dxPills">
+        <button class="pill active" data-i="0">一直转圈，白屏很久</button>
+        <button class="pill" data-i="1">图片一张张蹦出来</button>
+        <button class="pill" data-i="2">只有我打不开</button>
+        <button class="pill" data-i="3">第一次慢，刷新就快</button>
+        <button class="pill" data-i="4">国内快，国外特别慢</button>
+        <button class="pill" data-i="5">打开挺快，滚动就卡</button>
+      </div>
+      <div class="dx-panel">
+        <p class="dx-t" id="dxTitle">…</p>
+        <div class="dx-line"><b>结论</b><span id="dxWhy">…</span></div>
+        <div class="dx-line now"><b>先查</b><span id="dxHow">…</span></div>
+        <div class="dx-line no"><b>别做</b><span id="dxDont">…</span></div>
+      </div>
+    </div>
   </div>
-</section>
 
-<!-- ============ 06 怎么设 ============ -->
-<section id="howto">
-  <div class="sec-head"><span class="sec-num">06</span><h2>那你到底该怎么设密码</h2></div>
-
-  <p>
-    前面讲的都是网站的责任。但有一半的风险在你手上 —— 因为<strong>大部分账号被盗，不是因为网站被黑，而是因为同一个密码在另一个被黑的网站上用过</strong>。
-    这叫<strong>撞库</strong>：攻击者拿着一份泄露的「邮箱 + 密码」清单，去几百个网站挨个试。
-    你在一家小论坛用过和大厂邮箱一样的密码，那家论坛被拖库的那天，你的邮箱就危险了。
-  </p>
-
-  <h3>四条真正有用的建议</h3>
+  <h3>再配三个系统工具，九成问题能定位</h3>
   <div class="tbl-scroll">
   <table>
-    <thead><tr><th>做法</th><th>为什么它有用</th></tr></thead>
+    <thead><tr><th>症状</th><th>命令 / 动作</th><th>看什么</th></tr></thead>
     <tbody>
-      <tr><td><strong>1. 长度优先</strong><br />12 位以上，最好是一句话</td><td>长度是唯一按指数增长的因素。一句话天然又长又好记。</td></tr>
-      <tr><td><strong>2. 一个都不重复</strong><br />尤其是邮箱、银行、微信</td><td>撞库的全部威力都建立在「复用」上。不重复，一次泄露就只损失一个站。</td></tr>
-      <tr><td><strong>3. 用密码管理器</strong><br />浏览器自带 / 1Password / Bitwarden</td><td>「记不住」不是你的问题，是设计问题。让机器记随机长串，你只需记住一个主密码。</td></tr>
-      <tr><td><strong>4. 开二次验证</strong><br />短信验证码也算，验证器 App 更好</td><td>这是唯一能在「密码已经泄露」之后还救你的东西。<strong>优先级高于换更复杂的密码。</strong></td></tr>
+      <tr><td>所有网站都慢</td><td><code>ping 223.5.5.5</code></td><td>RTT 和丢包 —— 判断是宽带、路由器还是终端的问题</td></tr>
+      <tr><td>只有某个站慢</td><td><code>tracert 域名</code>（Mac 用 <code>traceroute</code>）</td><td>从第几跳开始从 20ms 跳到 200ms，那一段就是拥堵点</td></tr>
+      <tr><td>怀疑解析出错</td><td><code>nslookup 域名</code></td><td>返回的 IP 对不对、是不是被劫持到了奇怪地址</td></tr>
+      <tr><td>刷新就变快</td><td>Network 里看 <code>304</code> / <code>from disk cache</code></td><td>缓存生效了，这不是故障</td></tr>
+      <tr><td>页面卡但不慢</td><td>Performance 面板录 5 秒</td><td>长任务（Long Task）、掉帧 —— 主线程被 JS 占住了</td></tr>
     </tbody>
   </table>
   </div>
 
   <div class="callout warn">
-    <span class="tag">两条已经过时的建议，可以不用听了</span>
-    <p>
-      ① <strong>「必须含大写、数字、符号」</strong> —— 它逼出来的结果就是 <code>Password1!</code> 这种人人都会想到的变形，
-      反而更好猜。美国国家标准与技术研究院（NIST）现在的建议是：<strong>不强制组合规则，只要求足够长</strong>。<br />
-      ② <strong>「每 90 天必须换密码」</strong> —— 它逼出来的结果是 <code>abc123</code> → <code>abc124</code>。
-      现在的建议是：<strong>只在怀疑泄露时换</strong>。
-    </p>
+    <span class="tag">一个常见误判</span>
+    <p>「我清了缓存反而更慢了」—— 对，因为你把最有用的一层优化手动删掉了。
+    清缓存是<strong>排查手段</strong>，不是优化手段。日常使用越少清越好。</p>
   </div>
-
-  <h3>关于「浏览器帮我记住密码」</h3>
-  <p>
-    这个其实<strong>比你想的安全</strong>：浏览器存的是用你系统账户钥匙加密过的本地文件，别人拿到你电脑也需要你的登录密码才能解开。
-    真正的风险不是「浏览器记住」，而是<strong>你把同一个密码手动输进了所有网站</strong>。
-    相比之下，用浏览器或密码管理器生成一堆互不相同的随机串，安全性高得多 —— 唯一的代价是你要信任这台设备，所以电脑别裸奔、手机记得锁屏。
-  </p>
-
-  <h3>三道自测</h3>
-  <details>
-    <summary>网站被拖库了，但它用了「加盐 + bcrypt」，攻击者拿到了什么？</summary>
-    <div class="ans"><p>一堆「盐 + 指纹」。他不能直接读出密码，也没法查表（盐打散了）。他能做的只有一件事：针对每个账号单独硬猜，而 bcrypt 让每次猜都要 0.25 秒。如果密码本身够强，几万年也猜不出来；如果密码是 <code>123456</code>，那第一批就中。所以「加盐 + 慢哈希」的意义是：<strong>把损失从「全军覆没」缩小到「弱密码的那部分人」</strong>，而不是零损失。</p></div>
-  </details>
-  <details>
-    <summary>为什么同一个密码，在 A 网站泄露了，B 网站也可能跟着完蛋？</summary>
-    <div class="ans"><p>因为密码复用。A 站被拖库后，攻击者拿到「你的邮箱 + 明文密码」（A 站可能没做好），直接拿去 B 站登录试试 —— 这叫撞库，是账号被盗最主要的原因，比「黑客专门针对你」常见得多。这也是为什么「不重复」比「复杂」更重要。</p></div>
-  </details>
-  <details>
-    <summary>我开了短信二次验证，密码是不是可以随便设了？</summary>
-    <div class="ans"><p>不行，但优先级确实变了。二次验证能挡住「别人拿你泄露的密码来登录」，却挡不住「别人用你的密码做别的事」以及「短信被劫持」。正确顺序是：<strong>先开二次验证（收益最大），再换成长且不重复的密码</strong>。两件事都做，成本也就十分钟。</p></div>
-  </details>
 </section>
 
-<!-- ============ 07 挑战 ============ -->
+<!-- ============ 08 挑战 ============ -->
 <section id="challenge">
-  <div class="sec-head"><span class="sec-num">07</span><h2>本周挑战：给自己做一次密码体检</h2></div>
+  <div class="sec-head"><span class="sec-num">08</span><h2>本周挑战：给网速做一次分段体检</h2></div>
 
   <p>
-    这周的挑战仍然不考算法。三级任选，<strong>做完任意一个都算赢</strong>。
-    唯一的硬规矩：<strong>任何地方都不要写出你的真实密码</strong> —— 写下「结构」（几位、什么类型、用在几类网站）就够了。
+    这周的三级挑战都不需要写代码，但需要你动手点几下。任选一级，<strong>做完就算赢</strong>。
   </p>
 
   <div class="levels">
     <div class="level">
       <div class="lv">Lv 1 · 观察 · 15 分钟 · 零代码</div>
-      <h4>审计你自己的密码习惯</h4>
+      <h4>给自己常用的三个网站做体检</h4>
       <ul>
-        <li>打开 <a href="https://haveibeenpwned.com/" target="_blank" rel="noopener">haveibeenpwned.com</a>，输入你的<strong>邮箱</strong>，看它出现在几次泄露里、分别是哪些站。</li>
-        <li>再进「Passwords」页，输入一个你<strong>已经不用了</strong>的旧密码，看它是否在泄露库里（这个页面用 k-匿名，只上传指纹的前 5 位）。</li>
-        <li>数一数：你有几个重要账号（邮箱、微信、银行、学校）？它们当中有几个<strong>用的是同一个密码</strong>？</li>
-        <li>写三句话结论：「我有 N 个账号，其中 M 个密码相同；我的邮箱在 K 次泄露里出现过。」</li>
+        <li>选三个站：一个天天用的、一个国外的、一个小网站。</li>
+        <li>每个站：F12 → Network → 勾「Disable cache」→ <code>Ctrl+R</code> 强制刷新。</li>
+        <li>点最上面那行（HTML 文档）→ 右侧 <strong>Timing</strong>，记下 DNS、TCP、TLS、TTFB、下载 五个数。</li>
+        <li>取消勾选再刷一次，记下「缓存后」的总时间。</li>
+        <li>回答：三个站里<strong>哪一段占比最大</strong>？它们的答案一样吗？</li>
       </ul>
     </div>
     <div class="level l2">
-      <div class="lv">Lv 2 · 动手 · 20 分钟 · 代码 10 行</div>
-      <h4>亲手验证「加盐」和「雪崩」</h4>
+      <div class="lv">Lv 2 · 动手 · 20 分钟 · 只改参数</div>
+      <h4>用账单脚本验证「时间花在哪」</h4>
       <ul>
-        <li>把仓库里的 <a href="salt_demo.py">week-02/salt_demo.py</a> 存到本地，运行 <code>python salt_demo.py</code>（不需要装任何东西）。</li>
-        <li>看输出里的第一段：同一个密码注册两次，两个指纹完全不同 —— 这就是盐。</li>
-        <li>改脚本里 <code>pw</code> 的值，换成你自己的某个密码的<strong>变体</strong>（比如把最后一个字母改掉），再跑一次，看 64 个字符变了几个。</li>
-        <li>进阶：用网页版的指纹机算一次，再用脚本算一次，确认两边的结果<strong>一模一样</strong> —— 这说明它们用的是同一台「绞肉机」。</li>
+        <li>跑 <code>python latency_budget.py</code>，再依次加 <code>--cdn</code>、<code>--cached</code>、<code>--net satellite</code>。</li>
+        <li>先猜再跑：卫星的总时间是光纤的几倍？猜错了几倍？</li>
+        <li>跑 <code>--net satellite --cdn</code>，解释：<strong>为什么给卫星用户加 CDN 也救不回来？</strong></li>
+        <li>把脚本里的 <code>RENDER = 90</code> 改成 900，看占比怎么反转。</li>
       </ul>
     </div>
     <div class="level l3">
       <div class="lv">Lv 3 · 探索 · 半小时</div>
-      <h4>做一次「家庭网络安全员」</h4>
+      <h4>用 tracert 把「路」画出来</h4>
       <ul>
-        <li>帮家里一位长辈检查：他/她的常用密码是不是「名字拼音 + 生日」？在几个地方重复？</li>
-        <li>用第 04 节的估算器算一下那个密码的「最好情况」破解时间，告诉对方这个数字（这比讲道理有用得多）。</li>
-        <li>帮他改成一个好记的<strong>中文短句</strong>，并开启二次验证。记录下来：改之前 / 改之后的关键差别是什么。</li>
+        <li>对一个国内站和一个国外站各跑一次 <code>tracert</code>，找出延迟突然跳到 200ms+ 的那一跳。</li>
+        <li>用 <code>ping -n 10</code> 看平均延迟和丢包率；再开手机热点对比一次。</li>
+        <li>算一下：单程时间 × 20 万公里/秒 = 理论最远距离。实际距离比它远，说明什么？</li>
+        <li>最后回答：想把这个国外站变快，你能做的事有哪几件？</li>
       </ul>
     </div>
   </div>
 
-  <h3>Lv2 的核心代码（就这几行）</h3>
+  <h3>核心代码（就这几行）</h3>
+  <div class="formula"><span class="cm"># 整个模型的核心就是这个加法 —— 在 latency_budget.py 里</span>
+edge = min(rtt // 2, 150) <span class="hl">if</span> cdn <span class="hl">else</span> 0     <span class="cm"># CDN 省的是跨城那段</span>
+r = rtt - edge
 
-  <div class="formula"><span class="cm"># 从 salt_demo.py 里摘出来的骨架 —— 网站真正干的事</span>
-<span class="hl">import</span> hashlib, secrets
-
-<span class="hl">def</span> fingerprint(text):
-    <span class="hl">return</span> hashlib.sha256(text.encode()).hexdigest()   <span class="cm"># 64 个字符的指纹</span>
-
-salt = secrets.token_hex(8)                                <span class="cm"># 每个账号一份随机盐</span>
-stored = fingerprint(salt + <span class="hl">"你的密码"</span>)                  <span class="cm"># 库里存的是这个</span>
-<span class="cm"># 登录时：fingerprint(salt + 用户输入) == stored  →  放行</span></div>
-
-  <p style="font-size:15px;color:var(--muted)">
-    真实项目请把 <code>sha256</code> 换成 <code>bcrypt</code> 或 <code>argon2</code> —— 原因见第 04 节。
-  </p>
+stages = [("DNS", r), ("TCP", r)]            <span class="cm"># 各一个来回</span>
+<span class="hl">if</span> https: stages.append(("TLS", r))          <span class="cm"># 再加一个来回</span>
+stages.append(("等首字节", r + server))       <span class="cm"># 一个来回 + 服务器思考</span>
+<span class="cm"># 剩下的下载和渲染，和网络类型基本无关</span></div>
 
   <div class="callout">
     <span class="tag">怎么交作业</span>
-    <p>去仓库<strong>开一个 Issue</strong>，标题写「Week02 打卡」，正文贴你的三句话 / 两条指纹对比 / 长辈体检记。
-    记住那条硬规矩：<strong>永远不要贴真实密码</strong>，只贴结构和指纹（指纹是安全的，它反推不出密码）。</p>
+    <p>去仓库<strong>开一个 Issue</strong>，标题写「Week03 打卡 · Lv1」。正文贴你的 Timing 表格
+    或脚本输出就行，不用写作文。截图里如果有内网 IP、真实姓名、学号，记得打码。</p>
   </div>
 </section>
 
-<!-- ============ 08 小结 ============ -->
+<!-- ============ 09 小结 ============ -->
 <section id="takeaway">
-  <div class="sec-head"><span class="sec-num">08</span><h2>带走三句话</h2></div>
+  <div class="sec-head"><span class="sec-num">09</span><h2>带走三句话</h2></div>
 
   <ol>
-    <li><strong>网站存的是指纹，不是密码。</strong>所以它只能让你重置、不能把原密码发给你 —— 谁能发给你，谁的库就是明文。</li>
-    <li><strong>光有指纹还不够，得加盐、还得慢。</strong>盐让每个人的指纹独一无二（防查表），慢哈希让硬猜变得不划算（防暴力）。但这两样都救不了「密码本身太好猜」。</li>
-    <li><strong>你的风险一半在自己手上。</strong>不重复 &gt; 够长 &gt; 花哨，二次验证 &gt; 一切。花十分钟开二次验证，比把密码从 8 位改成 12 位有用得多。</li>
+    <li><strong>网址不是地址，是一个需要翻译的名字。</strong>DNS 把名字换成 IP，路上每一层都在缓存 ——
+    所以「解析生效慢」是别人的缓存没过期，不是系统坏了。</li>
+    <li><strong>慢的大头往往是「来回几次」，不是「数据多少」。</strong>光纤 20ms 意味着服务器在 2000 公里外；
+    CDN 省的是距离，不是带宽；而卫星上网再贵的服务器也救不了。</li>
+    <li><strong>白屏要分段查，不要整体骂。</strong>前面空 = 在排队，中间长 = 服务器在想，
+    后面长 = 文件太大，全都不长还卡 = 你的浏览器在忙。</li>
   </ol>
+
+  <h3>三道自测</h3>
+  <details>
+    <summary>为什么同一个网站，我第一次打开要 2 秒，第二次只要 0.2 秒？</summary>
+    <div class="ans"><p>因为第一次走了全流程：查名字、建连接、上锁、要文件、下载、渲染。第二次这五步里有四步被缓存吃掉了 ——
+    名字记着、连接还热着、文件本地有（<code>304</code> 或 <code>from disk cache</code>），只剩渲染。
+    <strong>这不是「变快了」，是「大部分事没发生」。</strong></p></div>
+  </details>
+  <details>
+    <summary>我把网站搬到配置高十倍的服务器上，为什么同事还是说慢？</summary>
+    <div class="ans"><p>先看他卡在哪一段。如果他的 TTFB 很长，那是服务器/数据库的问题，换更强的机器确实有用；
+    但如果他的 DNS 和 TLS 就花了两百毫秒（比如人在国外、或者用的是卫星网络），那问题在<strong>距离</strong>上，
+    换服务器一点用都没有 —— 该做的是上 CDN，把内容搬到离他近的地方。</p></div>
+  </details>
+  <details>
+    <summary>看到 502 和 404，哪个该找对方、哪个该改自己？</summary>
+    <div class="ans"><p><code>404</code> 是「这个地址没有东西」，通常是你链接写错了或者页面被删了，该改自己。
+    <code>502</code> 是「网关去问后端，后端没应答」，是它的服务挂了，该等对方修。
+    记法就一句：<strong>4 开头是我的问题，5 开头是它的问题。</strong></p></div>
+  </details>
 
   <div class="callout">
     <span class="tag">下期预告</span>
-    <p>Week 03 候选：<strong>SSD 为什么快</strong>（拆开闪存，看它怎么在没有活动部件的情况下记住 0 和 1）、
+    <p>Week 04 候选：<strong>SSD 为什么快</strong>（拆开闪存，看它怎么在没有活动部件的情况下记住 0 和 1）、
     <strong>程序为什么会崩</strong>（从「容器满了」讲起，看懂最常见的几种报错）、
-    <strong>一个网址从输入到出现，中间发生了什么</strong>（DNS、服务器、CDN 的分工）。<br />想听哪个，去仓库 Issue 投票。</p>
+    <strong>操作系统到底在干什么</strong>（为什么你能一边听歌一边写文档）。<br />想听哪个，去仓库 Issue 投票。</p>
   </div>
 </section>
 
@@ -841,11 +928,11 @@ stored = fingerprint(salt + <span class="hl">"你的密码"</span>)             
 <footer class="wrap">
   <div class="foot-row">
     <div>
-      <div style="color:var(--ink);font-weight:600;margin-bottom:4px">每周一个计算机小知识 · Week 02</div>
-      <div>爱好者版 · 密码存储 + 加盐 + 慢哈希 + 密码体检</div>
+      <div style="color:var(--ink);font-weight:600;margin-bottom:4px">每周一个计算机小知识 · Week 03</div>
+      <div>爱好者版 · DNS / 握手 / HTTP / CDN / 渲染 与一次访问的时间账单</div>
     </div>
     <div style="display:flex;flex-wrap:wrap;gap:10px">
-      <a class="next" href="week-01/index.html"><span style="color:var(--muted)">←</span><span>上期：代码怎么跑起来</span></a>
+      <a class="next" href="week-02/index.html"><span style="color:var(--muted)">←</span><span>上期：密码怎么存的</span></a>
       <a class="next" href="https://github.com/kinghihido/cs-weekly" target="_blank" rel="noopener">
         <span>GitHub 源码与挑战</span><span style="color:var(--accent)">→</span>
       </a>
@@ -861,194 +948,231 @@ stored = fingerprint(salt + <span class="hl">"你的密码"</span>)             
   "use strict";
   var $ = function(id){ return document.getElementById(id); };
 
-  /* ============ 真实 SHA-256（与 Python hashlib 逐字节一致） ============ */
-  var K = [
-    0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,
-    0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,
-    0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,
-    0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,
-    0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,
-    0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,
-    0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,
-    0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2
-  ];
-  function rotr(x, n){ return (x >>> n) | (x << (32 - n)); }
-  function utf8(str){
-    if (typeof TextEncoder !== "undefined") return new TextEncoder().encode(str);
-    var out = [], s = unescape(encodeURIComponent(str));
-    for (var i = 0; i < s.length; i++) out.push(s.charCodeAt(i));
-    return new Uint8Array(out);
-  }
-  function sha256(str){
-    var bytes = utf8(str), l = bytes.length;
-    var total = Math.ceil((l + 9) / 64) * 64;
-    var buf = new Uint8Array(total);
-    buf.set(bytes);
-    buf[l] = 0x80;
-    var dv = new DataView(buf.buffer);
-    var bits = l * 8;
-    dv.setUint32(total - 8, Math.floor(bits / 4294967296));
-    dv.setUint32(total - 4, bits >>> 0);
+  /* ============================================================
+     DEMO 1 · 五站旅程的瀑布图
+     ============================================================ */
+  var RTT = 20, useHttps = true, useCdn = false, useCache = false;
+  var COLOR = {
+    dns:"#2b4ee6", tcp:"#7c3aed", tls:"#0f766e", req:"#b45309",
+    down:"#0891b2", assets:"#64748b", render:"#16a34a", cache:"#0f766e"
+  };
 
-    var h0=0x6a09e667, h1=0xbb67ae85, h2=0x3c6ef372, h3=0xa54ff53a,
-        h4=0x510e527f, h5=0x9b05688c, h6=0x1f83d9ab, h7=0x5be0cd19;
-    var w = new Uint32Array(64);
-    for (var off = 0; off < total; off += 64){
-      for (var i = 0; i < 16; i++) w[i] = dv.getUint32(off + i * 4);
-      for (i = 16; i < 64; i++){
-        var s0 = rotr(w[i-15],7) ^ rotr(w[i-15],18) ^ (w[i-15] >>> 3);
-        var s1 = rotr(w[i-2],17) ^ rotr(w[i-2],19) ^ (w[i-2] >>> 10);
-        w[i] = (w[i-16] + s0 + w[i-7] + s1) | 0;
-      }
-      var a=h0,b=h1,c=h2,d=h3,e=h4,f=h5,g=h6,hh=h7;
-      for (i = 0; i < 64; i++){
-        var S1 = rotr(e,6) ^ rotr(e,11) ^ rotr(e,25);
-        var ch = (e & f) ^ (~e & g);
-        var t1 = (hh + S1 + ch + K[i] + w[i]) | 0;
-        var S0 = rotr(a,2) ^ rotr(a,13) ^ rotr(a,22);
-        var maj = (a & b) ^ (a & c) ^ (b & c);
-        var t2 = (S0 + maj) | 0;
-        hh=g; g=f; f=e; e=(d+t1)|0; d=c; c=b; b=a; a=(t1+t2)|0;
-      }
-      h0=(h0+a)|0; h1=(h1+b)|0; h2=(h2+c)|0; h3=(h3+d)|0;
-      h4=(h4+e)|0; h5=(h5+f)|0; h6=(h6+g)|0; h7=(h7+hh)|0;
-    }
-    var hs = [h0,h1,h2,h3,h4,h5,h6,h7], out = "";
-    for (i = 0; i < 8; i++) out += ("00000000" + (hs[i] >>> 0).toString(16)).slice(-8);
-    return out;
-  }
+  function buildStages(){
+    var rtt = RTT, list = [];
 
-  function randHex(nbytes){
-    var arr = new Uint8Array(nbytes);
-    if (window.crypto && window.crypto.getRandomValues){
-      window.crypto.getRandomValues(arr);
+    if (useCache){
+      list.push({ n:"读本地缓存", t:2, k:"cache" });
     } else {
-      for (var i = 0; i < nbytes; i++) arr[i] = Math.floor(Math.random() * 256);
+      var save = useCdn ? Math.min(Math.floor(rtt / 2), 150) : 0;
+      var r = rtt - save;
+      list.push({ n:"DNS 解析", t:r, k:"dns" });
+      list.push({ n:"TCP 握手", t:r, k:"tcp" });
+      if (useHttps) list.push({ n:"TLS 握手", t:r, k:"tls" });
+      list.push({ n:"请求 + 首字节", t:r + (useCdn ? 8 : 45), k:"req" });
+      list.push({ n:"下载 HTML", t:useCdn ? 15 : 30, k:"down" });
     }
-    var s = "";
-    for (var j = 0; j < arr.length; j++) s += ("0" + arr[j].toString(16)).slice(-2);
-    return s;
+    list.push({ n:"拉取 CSS/JS/图", t:useCdn ? 60 : 120, k:"assets" });
+    list.push({ n:"解析与渲染", t:90, k:"render" });
+    return list;
   }
 
-  /* ============ W1 指纹机 ============ */
-  function drawGrid(box, hash, base){
+  var token = 0;
+  function play(){
+    var stages = buildStages();
+    var total = 0, i;
+    for (i = 0; i < stages.length; i++) total += stages[i].t;
+
+    var my = ++token;
+    var box = $("wl");
     box.innerHTML = "";
-    var diff = 0;
-    for (var i = 0; i < 64; i++){
-      var span = document.createElement("span");
-      span.className = "fp-cell";
-      span.textContent = hash.charAt(i);
-      if (base && base.charAt(i) !== hash.charAt(i)){
-        span.className += " diff";
-        diff++;
-      }
-      box.appendChild(span);
+    $("clock").textContent = "0";
+
+    var rows = [], start = 0;
+    for (i = 0; i < stages.length; i++){
+      var st = stages[i];
+      var row = document.createElement("div");
+      row.className = "wl-row";
+      row.innerHTML =
+        '<div class="wl-name">' + st.n + "</div>" +
+        '<div class="wl-track"><div class="wl-bar" style="left:' + (start / total * 100).toFixed(2) +
+          "%;width:" + Math.max(st.t / total * 100, 1.2).toFixed(2) +
+          "%;background:" + COLOR[st.k] + '"></div></div>' +
+        '<div class="wl-ms">' + st.t + "</div>";
+      box.appendChild(row);
+      rows.push({ el:row, cum:(start + st.t) });
+      start += st.t;
     }
-    return diff;
-  }
-  var fpIn = $("fpIn");
-  function refreshFp(){
-    var v = fpIn.value;
-    var a = sha256(v), b = sha256(v + "!");
-    drawGrid($("fpA"), a, null);
-    var n = drawGrid($("fpB"), b, a);
-    $("fpDiffN").textContent = n + " / 64 个字符变了";
-  }
-  fpIn.addEventListener("input", refreshFp);
-  refreshFp();
 
-  /* ============ W2 加盐对照 ============ */
-  var COMMON = ["123456", "password", "qwerty", "iloveyou123", "5201314", "abc123"];
-  var COMMON_HASH = {};
-  for (var ci = 0; ci < COMMON.length; ci++) COMMON_HASH[sha256(COMMON[ci])] = COMMON[ci];
+    var step = Math.max(120, Math.min(230, 900 / rows.length));
+    for (i = 0; i < rows.length; i++){
+      (function(r, idx){
+        setTimeout(function(){
+          if (my !== token) return;
+          r.el.classList.add("show");
+          $("clock").textContent = r.cum;
+        }, 90 + idx * step);
+      })(rows[i], i);
+    }
 
-  var salt = randHex(8);
-  function refreshSalt(){
-    var pw = $("saltIn").value;
-    var plain = sha256(pw);
-    $("h1").textContent = plain;
+    /* 摘要 */
+    var heaviest = stages[0];
+    for (i = 1; i < stages.length; i++) if (stages[i].t > heaviest.t) heaviest = stages[i];
+    if (my === token){
+      $("wlSum").innerHTML = "合计 <strong>" + total + " ms</strong>　·　最重的一段是「" +
+        heaviest.n + "」（" + heaviest.t + " ms，占 " +
+        Math.round(heaviest.t / total * 100) + "%）";
+    }
 
-    var hit = COMMON_HASH[plain];
-    var hitBox = $("hitBox");
-    if (hit){
-      hitBox.className = "verdict hit";
-      hitBox.textContent = "⚠ 这张小表里就有它 —— 攻击者 0 秒还原出「" + hit + "」，而且你的一百万个同伴指纹全都一样。";
+    /* 一句话解释 */
+    var note;
+    if (useCache){
+      note = "第二次访问：网络那几行全被缓存吃掉了，只剩两行。缓存不是让事情变快，是让事情不用发生。";
+    } else if (RTT >= 500){
+      note = "卫星上网：步骤一步没少，但每个来回都要上天下地。" + (useCdn ? "CDN 只省掉一小段跨城距离，救不了最后一公里。" : "开一下 CDN 试试，看能省多少。");
+    } else if (useCdn){
+      note = "CDN 把服务器搬到了你隔壁：握手和首字节都变短了。但「拉取资源」和「渲染」这两段，它管不着。";
     } else {
-      hitBox.className = "verdict";
-      hitBox.textContent = "这 6 行的表里没找到。但真实彩虹表有几亿行 —— 换一个更常见的密码试试。";
+      note = "首次访问，五站全走一遍。试试打开 CDN、或者改成卫星网络，看哪一段先变。";
     }
-
-    var rows = "";
-    for (var i = 0; i < COMMON.length; i++){
-      var h = sha256(COMMON[i]);
-      var on = (h === plain) ? " on" : "";
-      rows += '<div class="row' + on + '"><span>' + COMMON[i] + "</span><span>" + h.slice(0, 10) + "…</span></div>";
-    }
-    $("rbt").innerHTML = '<div style="margin-bottom:4px">彩虹表（节选）</div>' + rows;
-
-    $("saltShow").textContent = salt;
-    $("h2").textContent = sha256(salt + pw);
+    $("wlNote").textContent = note;
   }
-  $("saltIn").addEventListener("input", refreshSalt);
-  $("btnResalt").addEventListener("click", function(){
-    salt = randHex(8);
-    refreshSalt();
+
+  var nets = $("netPills").querySelectorAll(".pill");
+  function bindNet(){
+    for (var i = 0; i < nets.length; i++){
+      (function(btn){
+        btn.addEventListener("click", function(){
+          for (var k = 0; k < nets.length; k++) nets[k].classList.remove("active");
+          btn.classList.add("active");
+          RTT = parseInt(btn.getAttribute("data-rtt"), 10);
+          play();
+        });
+      })(nets[i]);
+    }
+  }
+  bindNet();
+
+  function bindTg(id, get, set){
+    $(id).addEventListener("click", function(){
+      set(!get());
+      this.classList.toggle("on", get());
+      play();
+    });
+  }
+  bindTg("tgHttps", function(){ return useHttps; }, function(v){ useHttps = v; });
+  bindTg("tgCdn", function(){ return useCdn; }, function(v){ useCdn = v; });
+  bindTg("tgCache", function(){ return useCache; }, function(v){ useCache = v; });
+  $("btnReplay").addEventListener("click", play);
+  play();
+
+  /* ============================================================
+     DEMO 2 · DNS 的六层问路
+     ============================================================ */
+  var DNS = [
+    { n:"1 · 浏览器缓存", d:"Chrome 自己记着上次的答案", ms:0.2 },
+    { n:"2 · 系统缓存 / hosts", d:"操作系统也记一份；hosts 文件能把域名写死", ms:0.5 },
+    { n:"3 · 递归解析器", d:"运营商给的，或你设的 8.8.8.8 / 223.5.5.5，替你跑腿", ms:5 },
+    { n:"4 · 根服务器 .", d:"只回答一句：去问 .io 的服务器", ms:30 },
+    { n:"5 · 顶级域 .io", d:"回答：去问 github.io 的权威服务器", ms:30 },
+    { n:"6 · 权威 DNS", d:"这里才真正存着 IP，并说「这个答案可以记 300 秒」", ms:30 }
+  ];
+
+  var dnsToken = 0, dnsTimer = null;
+  function dnsRender(rows, verdict, totalText){
+    var box = $("dnsList");
+    box.innerHTML = "";
+    for (var i = 0; i < rows.length; i++){
+      var r = rows[i];
+      var el = document.createElement("div");
+      el.className = "dns-row" + (r.hit ? " hit" : "");
+      el.innerHTML = '<div class="dns-n">' + r.n + "</div>" +
+        '<div class="dns-d">' + r.d + "</div>" +
+        '<div class="dns-ms">' + r.ms + " ms</div>";
+      box.appendChild(el);
+      (function(node, idx){
+        setTimeout(function(){ node.classList.add("show"); }, 60 + idx * 260);
+      })(el, i);
+    }
+    $("dnsVerdict").textContent = verdict;
+    $("dnsTotal").textContent = totalText;
+  }
+
+  $("btnResolve").addEventListener("click", function(){
+    var sum = 0;
+    var rows = DNS.map(function(s){ sum += s.ms; return s; });
+    dnsRender(rows, "第一次访问：六层全问一遍", Math.round(sum));
   });
-  refreshSalt();
 
-  /* ============ W3 破解时间 ============ */
-  var charset = 26;
-  var RATE = 1e10;
-  var GLYPH = ["⁰","¹","²","³","⁴","⁵","⁶","⁷","⁸","⁹"];
+  $("btnAgain").addEventListener("click", function(){
+    setTimeout(function(){
+      dnsRender(
+        [{ n:"1 · 浏览器缓存", d:"答案还在，TTL 还没到 —— 后面的五层一层都不用问", ms:0.2, hit:true }],
+        "再访问一次：直接命中，0 毫秒",
+        "0.2"
+      );
+    }, 40);
+  });
 
-  function sci(n){
-    if (n < 1e4) return n.toLocaleString("en-US", { maximumFractionDigits: 0 });
-    var e = Math.floor(Math.log(n) / Math.LN10);
-    var m = n / Math.pow(10, e);
-    var es = String(e).split("").map(function(ch){ return GLYPH[+ch]; }).join("");
-    return m.toFixed(2) + " × 10" + es;
+  /* ============================================================
+     DEMO 3 · 症状自查
+     ============================================================ */
+  var DX = [
+    {
+      t:"一直转圈，白屏很久才出来",
+      why:"请求已经发出去了，但对方迟迟不给第一个字节（TTFB 高）。网络前几段可能是好的。",
+      how:"F12 → Network → 点那个 HTML 请求 → Timing → 看 Waiting (TTFB)。超过 500ms 就是服务器在思考。",
+      dont:"别急着换 DNS、换宽带、清缓存 —— 那两段可能各自只花了 20 毫秒。"
+    },
+    {
+      t:"页面骨架出来了，图片一张张蹦",
+      why:"HTML 很快，慢在后续资源：图片太大、没走 CDN、或者请求太多在排队。",
+      how:"Network 里按 Size 排序，看最大的几个文件；再看 Content Download 和 Queueing 的时长。",
+      dont:"别怪服务器 —— 它早就把页面给你了，是材料还没搬完。"
+    },
+    {
+      t:"只有我打不开，别人都正常",
+      why:"问题在你这台机器或这条线路上：本地 DNS 缓存、hosts 文件、代理/VPN、或者校园网策略。",
+      how:"nslookup 域名看解析结果；换手机热点试一次；把代理关掉再试。",
+      dont:"别反复清浏览器缓存 —— 「找不到服务器」和缓存关系不大。"
+    },
+    {
+      t:"第一次慢，刷新一下就飞快",
+      why:"缓存生效了。这不是故障，是设计 —— 网络那几段根本没发生。",
+      how:"Network 里看状态码 304、或者 Size 那栏写着 from disk cache / from memory cache。",
+      dont:"别为了「干净」天天清缓存，那等于把最有效的一层优化手动删掉。"
+    },
+    {
+      t:"国内网站都快，国外的特别慢",
+      why:"跨境链路的往返时间是 100 毫秒起，而这条路要来回好几次；再加上国际出口拥塞。",
+      how:"tracert 看第几跳从 20ms 跳到 200ms（那就是出国的那一跳）；ping 看丢包率。",
+      dont:"别指望「加速软件」改物理距离，它只能改路由或者用代理缓存。"
+    },
+    {
+      t:"打开挺快，但一滚动就卡",
+      why:"这不是网络问题，是渲染问题：主线程被 JS、大图解码或者复杂样式占住了。",
+      how:"Performance 面板录 5 秒，看有没有长任务（Long Task）、有没有掉帧。",
+      dont:"别再优化下载体积了，瓶颈不在那 —— 换成更快的网也一样卡。"
+    }
+  ];
+
+  function showDx(i){
+    var d = DX[i];
+    $("dxTitle").textContent = d.t;
+    $("dxWhy").textContent = d.why;
+    $("dxHow").textContent = d.how;
+    $("dxDont").textContent = d.dont;
   }
-  function fmtTime(sec){
-    if (sec < 1) return "不到 1 秒";
-    if (sec < 60) return Math.round(sec) + " 秒";
-    if (sec < 3600) return (sec / 60).toFixed(1).replace(".0", "") + " 分钟";
-    if (sec < 86400) return (sec / 3600).toFixed(1).replace(".0", "") + " 小时";
-    var y = sec / 31557600;
-    if (y < 1) return (sec / 86400).toFixed(1).replace(".0", "") + " 天";
-    if (y < 1e4) return Math.round(y).toLocaleString("en-US") + " 年";
-    if (y < 1e8) return (y / 1e4).toFixed(1) + " 万年";
-    if (y < 1.38e10) return (y / 1e8).toFixed(1) + " 亿年";
-    return "宇宙年龄（138 亿年）的 " + Math.round(y / 1.38e10) + " 倍";
-  }
-
-  var csPills = $("csPills").querySelectorAll(".pill");
-  function refreshCrack(){
-    var len = parseInt($("lenRange").value, 10);
-    $("lenVal").textContent = len + " 位";
-    var combos = Math.pow(charset, len);
-    var sec = combos / RATE;
-    var bits = len * Math.log(charset) / Math.LN2;
-
-    var main = $("crackMain");
-    main.textContent = fmtTime(sec);
-    main.className = "bt-main " + (sec < 86400 * 365 ? "weak" : "ok");
-
-    $("crackSub").textContent =
-      "组合数 " + sci(combos) + "　·　信息量 " + Math.round(bits) + " bit　·　" +
-      len + " 位 × " + charset + " 种字符";
-  }
-  for (var pi = 0; pi < csPills.length; pi++){
+  var dxPills = $("dxPills").querySelectorAll(".pill");
+  for (var d = 0; d < dxPills.length; d++){
     (function(btn){
       btn.addEventListener("click", function(){
-        for (var k = 0; k < csPills.length; k++) csPills[k].classList.remove("active");
+        for (var k = 0; k < dxPills.length; k++) dxPills[k].classList.remove("active");
         btn.classList.add("active");
-        charset = parseInt(btn.getAttribute("data-n"), 10);
-        refreshCrack();
+        showDx(parseInt(btn.getAttribute("data-i"), 10));
       });
-    })(csPills[pi]);
+    })(dxPills[d]);
   }
-  $("lenRange").addEventListener("input", refreshCrack);
-  refreshCrack();
+  showDx(0);
 })();
 </script>
 </body>

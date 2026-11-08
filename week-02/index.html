@@ -1,0 +1,1055 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>第 02 期 · 你的密码，网站到底怎么存的</title>
+<meta name="description" content="每周一个计算机小知识 · 第 02 期（爱好者版）：哈希指纹、加盐、慢哈希、HTTPS 与存储的区别，以及你该怎么设密码。含三个可点击的本地演示。" />
+<meta property="og:title" content="计算机小知识 · 每周一条" />
+<meta property="og:description" content="给爱好者的计算机常识课：每期讲清一个天天在用但说不明白的东西。第 02 期：你的密码，网站到底怎么存的。" />
+<meta property="og:type" content="website" />
+<meta property="og:url" content="https://kinghihido.github.io/cs-weekly/" />
+<style>
+  :root{
+    --paper:#f7f6f2;
+    --card:#ffffff;
+    --ink:#14161b;
+    --ink-2:#3d424d;
+    --muted:#767d8a;
+    --line:#e5e2d9;
+    --line-2:#d6d2c6;
+    --accent:#2b4ee6;
+    --accent-soft:#eef1ff;
+    --accent-2:#b45309;
+    --accent-2-soft:#fdf3e3;
+    --danger:#b91c1c;
+    --danger-soft:#fdeaea;
+    --ok:#0f766e;
+    --ok-soft:#e8f4f1;
+    --shadow:0 1px 2px rgba(20,22,27,.04), 0 8px 24px -12px rgba(20,22,27,.12);
+    --serif:"Georgia","Times New Roman","Songti SC","SimSun",serif;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    --mono:"SFMono-Regular",Consolas,"Liberation Mono",Menlo,monospace;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0;background:var(--paper);color:var(--ink);
+    font-family:var(--sans);font-size:16.5px;line-height:1.85;
+    -webkit-font-smoothing:antialiased;
+  }
+  ::selection{background:#dfe5ff}
+  a{color:var(--accent);text-decoration:none;border-bottom:1px solid rgba(43,78,230,.28)}
+  a:hover{border-bottom-color:var(--accent)}
+
+  .topbar{
+    position:sticky;top:0;z-index:50;
+    background:rgba(247,246,242,.86);backdrop-filter:saturate(180%) blur(12px);
+    border-bottom:1px solid var(--line);
+  }
+  .topbar-inner{
+    max-width:960px;margin:0 auto;padding:10px 24px;
+    display:flex;align-items:center;gap:22px;
+  }
+  .brand{display:flex;align-items:center;gap:9px;font-weight:700;font-size:14px;letter-spacing:.02em;white-space:nowrap}
+  .brand-dot{width:9px;height:9px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+  .navlinks{display:flex;gap:16px;overflow-x:auto;font-size:13.5px;color:var(--muted);scrollbar-width:none}
+  .navlinks::-webkit-scrollbar{display:none}
+  .navlinks a{color:var(--muted);border:0;white-space:nowrap;padding:2px 0}
+  .navlinks a:hover{color:var(--ink)}
+
+  .wrap{max-width:820px;margin:0 auto;padding:0 24px}
+  .hero{padding:64px 24px 40px;border-bottom:1px solid var(--line)}
+  .kicker{
+    display:inline-flex;align-items:center;gap:8px;
+    font-size:12px;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--accent);font-weight:700;
+  }
+  .kicker span.num{
+    font-family:var(--mono);background:var(--accent);color:#fff;
+    padding:1px 7px;border-radius:4px;letter-spacing:0;
+  }
+  h1{
+    font-family:var(--serif);font-weight:700;font-size:42px;line-height:1.25;
+    letter-spacing:-.01em;margin:18px 0 14px;
+  }
+  h1 em{font-style:normal;color:var(--accent);}
+  .lede{font-size:18.5px;color:var(--ink-2);max-width:660px;margin:0 0 26px}
+  .meta{
+    display:flex;flex-wrap:wrap;gap:10px 20px;font-size:13px;color:var(--muted);
+    font-family:var(--mono);
+  }
+  .meta b{color:var(--ink-2);font-weight:600}
+
+  section{padding:52px 0;border-bottom:1px solid var(--line)}
+  section:last-of-type{border-bottom:0}
+  .sec-head{display:flex;align-items:baseline;gap:14px;margin-bottom:22px}
+  .sec-num{
+    font-family:var(--mono);font-size:12px;color:var(--accent);
+    border:1px solid rgba(43,78,230,.3);border-radius:4px;padding:1px 6px;
+    flex:none;transform:translateY(-3px);
+  }
+  h2{font-family:var(--serif);font-size:28px;margin:0;letter-spacing:-.005em;line-height:1.3}
+  h3{font-size:16.5px;margin:34px 0 10px;letter-spacing:.01em}
+  p{margin:0 0 18px}
+  strong{font-weight:650}
+  code{
+    font-family:var(--mono);font-size:.875em;background:#efeee8;
+    padding:1.5px 5px;border-radius:4px;color:#252a33;
+  }
+  ul,ol{margin:0 0 18px;padding-left:22px}
+  li{margin:7px 0}
+  li::marker{color:var(--muted)}
+
+  .card{
+    background:var(--card);border:1px solid var(--line);border-radius:14px;
+    padding:22px 24px;box-shadow:var(--shadow);margin:24px 0;
+  }
+  .callout{
+    border-left:3px solid var(--accent);background:var(--accent-soft);
+    padding:16px 20px;border-radius:0 10px 10px 0;margin:24px 0;font-size:15.5px;color:#1e2a4a;
+  }
+  .callout.warn{border-left-color:var(--accent-2);background:var(--accent-2-soft);color:#5a3a10}
+  .callout.danger{border-left-color:var(--danger);background:var(--danger-soft);color:#5c1414}
+  .callout p:last-child{margin-bottom:0}
+  .callout .tag{
+    display:block;font-family:var(--mono);font-size:11px;letter-spacing:.12em;
+    text-transform:uppercase;opacity:.7;margin-bottom:4px;
+  }
+  blockquote{
+    margin:26px 0;padding:0 0 0 20px;border-left:2px solid var(--line-2);
+    font-family:var(--serif);font-size:18px;color:var(--ink-2);font-style:italic;
+  }
+
+  .tbl-scroll{overflow-x:auto;margin:24px 0}
+  table{border-collapse:collapse;width:100%;font-size:14.5px}
+  th,td{text-align:left;padding:10px 14px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{font-size:12px;letter-spacing:.06em;color:var(--muted);font-weight:600;background:#fbfaf7}
+  td.num,th.num{font-family:var(--mono);text-align:right}
+  tbody tr:hover{background:#fbfaf7}
+
+  .formula{
+    font-family:var(--mono);background:#1b1e25;color:#e9e6dd;
+    border-radius:12px;padding:18px 20px;margin:20px 0;font-size:14.5px;
+    overflow-x:auto;line-height:2;white-space:pre-wrap;
+  }
+  .formula .cm{color:#8b93a5}
+  .formula .hl{color:#ffd48a}
+
+  /* ---- widgets ---- */
+  .demo{
+    background:var(--card);border:1px solid var(--line);border-radius:16px;
+    box-shadow:var(--shadow);overflow:hidden;margin:26px 0;
+  }
+  .demo-top{
+    display:flex;align-items:center;justify-content:space-between;gap:12px;
+    padding:12px 18px;border-bottom:1px solid var(--line);background:#fbfaf7;
+    font-size:12px;font-family:var(--mono);color:var(--muted);letter-spacing:.06em;
+  }
+  .dotrow{display:flex;gap:5px}
+  .dotrow i{width:8px;height:8px;border-radius:50%;background:var(--line-2);display:block}
+  .demo-body{padding:20px}
+
+  .pills{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px}
+  .pill{
+    appearance:none;cursor:pointer;border:1px solid var(--line-2);background:#fff;
+    border-radius:999px;padding:7px 14px;font-size:13.5px;font-family:var(--sans);
+    color:var(--ink-2);transition:.15s;
+  }
+  .pill:hover{border-color:var(--ink)}
+  .pill.active{background:var(--ink);color:#fff;border-color:var(--ink)}
+
+  .fl{display:block;font-size:12px;font-family:var(--mono);letter-spacing:.08em;color:var(--muted);margin-bottom:6px}
+  .txt{
+    width:100%;font-family:var(--mono);font-size:15px;padding:10px 12px;
+    border:1px solid var(--line-2);border-radius:9px;background:#fbfaf7;color:var(--ink);
+    transition:.15s;
+  }
+  .txt:focus{outline:none;border-color:var(--accent);background:#fff;box-shadow:0 0 0 3px var(--accent-soft)}
+
+  .fp-label{
+    font-size:12px;font-family:var(--mono);letter-spacing:.06em;color:var(--muted);
+    display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:7px;
+  }
+  .fp-grid{
+    display:grid;grid-template-columns:repeat(16,1fr);gap:2px;
+    background:#fbfaf7;border:1px solid var(--line);border-radius:10px;padding:8px;
+  }
+  .fp-cell{
+    font-family:var(--mono);font-size:13px;line-height:1.7;text-align:center;
+    color:#4b5568;border-radius:3px;
+  }
+  .fp-cell.diff{background:#fde9c8;color:#8a4a00;font-weight:700}
+  .badge{
+    font-family:var(--mono);font-size:11px;padding:1px 7px;border-radius:999px;
+    background:var(--accent-2-soft);color:var(--accent-2);border:1px solid #efd3a4;
+    white-space:nowrap;
+  }
+  .note{font-size:14px;color:var(--muted);margin:12px 0 0}
+
+  .col2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:6px}
+  .panel{
+    border:1px solid var(--line);border-radius:12px;padding:16px 16px;background:#fbfaf7;
+  }
+  .panel.bad{border-color:#efc9c9;background:#fdf6f6}
+  .panel.good{border-color:#bfdcd4;background:#f4faf8}
+  .panel-t{font-size:13px;font-weight:700;letter-spacing:.02em;margin-bottom:10px}
+  .panel.bad .panel-t{color:var(--danger)}
+  .panel.good .panel-t{color:var(--ok)}
+  .kv{font-family:var(--mono);font-size:11.5px;word-break:break-all;line-height:1.7;color:#3d424d;
+      background:#fff;border:1px solid var(--line);border-radius:7px;padding:8px 10px}
+  .kv b{color:var(--muted);font-weight:400;display:block;font-size:10.5px;letter-spacing:.06em;margin-bottom:2px}
+  .verdict{font-size:13.5px;margin:10px 0 0;line-height:1.6}
+  .verdict.hit{color:var(--danger);font-weight:600}
+  .verdict.safe{color:var(--ok)}
+  .rbt{margin-top:10px;font-family:var(--mono);font-size:11px;color:var(--muted);line-height:1.9}
+  .rbt .row{display:flex;justify-content:space-between;gap:8px;border-bottom:1px dashed var(--line);padding:1px 0}
+  .rbt .row.on{color:var(--danger);font-weight:700}
+
+  .range-row{display:flex;align-items:center;gap:14px;margin:4px 0 18px}
+  .range-row .lbl{font-family:var(--mono);font-size:12.5px;color:var(--muted);white-space:nowrap}
+  input[type=range]{
+    -webkit-appearance:none;appearance:none;width:100%;height:24px;background:transparent;cursor:pointer;
+  }
+  input[type=range]::-webkit-slider-runnable-track{height:6px;border-radius:3px;background:var(--line-2)}
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none;width:20px;height:20px;border-radius:50%;background:var(--accent);
+    border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.25);margin-top:-7px;
+  }
+  input[type=range]::-moz-range-track{height:6px;border-radius:3px;background:var(--line-2)}
+  input[type=range]::-moz-range-thumb{width:18px;height:18px;border-radius:50%;background:var(--accent);border:2px solid #fff}
+  .bigtime{
+    background:#fbfaf7;border:1px solid var(--line);border-radius:12px;padding:18px 20px;
+  }
+  .bigtime .bt-top{font-family:var(--mono);font-size:11.5px;letter-spacing:.08em;color:var(--muted)}
+  .bigtime .bt-main{font-family:var(--serif);font-size:30px;line-height:1.35;margin:4px 0 6px;letter-spacing:-.01em}
+  .bigtime .bt-main.weak{color:var(--danger)}
+  .bigtime .bt-main.ok{color:var(--ok)}
+  .bigtime .bt-sub{font-size:13.5px;color:var(--ink-2);font-family:var(--mono);line-height:1.8}
+
+  .levels{display:grid;gap:14px;margin:24px 0}
+  .level{
+    background:var(--card);border:1px solid var(--line);border-left:4px solid var(--accent);
+    border-radius:0 12px 12px 0;padding:18px 22px;
+  }
+  .level.l2{border-left-color:#7c3aed}
+  .level.l3{border-left-color:var(--accent-2)}
+  .level .lv{font-family:var(--mono);font-size:11.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+  .level h4{margin:4px 0 8px;font-size:17px;font-family:var(--serif)}
+  .level ul{margin-bottom:0;font-size:15px}
+
+  details{
+    border:1px solid var(--line);border-radius:10px;padding:12px 16px;margin:10px 0;
+    background:var(--card);
+  }
+  details summary{cursor:pointer;font-weight:600;font-size:15px;list-style:none;display:flex;gap:10px;align-items:flex-start}
+  details summary::-webkit-details-marker{display:none}
+  details summary::before{content:"Q";font-family:var(--mono);font-size:11px;color:var(--accent);border:1px solid rgba(43,78,230,.3);border-radius:4px;padding:0 5px;flex:none;transform:translateY(3px)}
+  details[open] summary{margin-bottom:8px;padding-bottom:8px;border-bottom:1px dashed var(--line)}
+  details .ans{font-size:15px;color:var(--ink-2);padding-left:2px}
+  details .ans p:last-child{margin-bottom:0}
+
+  footer{padding:44px 24px 70px;font-size:13.5px;color:var(--muted)}
+  .foot-row{display:flex;flex-wrap:wrap;justify-content:space-between;gap:16px;align-items:center}
+  .next{
+    display:inline-flex;align-items:center;gap:10px;background:var(--card);
+    border:1px solid var(--line);border-radius:12px;padding:14px 18px;
+    box-shadow:var(--shadow);color:var(--ink);border-bottom:1px solid var(--line);
+  }
+  .next:hover{box-shadow:0 10px 28px -14px rgba(20,22,27,.25)}
+
+  @media (max-width:640px){
+    body{font-size:16px}
+    h1{font-size:30px}
+    .hero{padding:44px 20px 32px}
+    section{padding:40px 0}
+    h2{font-size:23px}
+    .navlinks{display:none}
+    .demo-body{padding:14px}
+    .bigtime .bt-main{font-size:23px}
+    .col2{grid-template-columns:1fr}
+    .fp-cell{font-size:11px}
+    .fp-grid{gap:1px;padding:6px}
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-inner">
+    <div class="brand"><span class="brand-dot"></span>每周一个计算机小知识</div>
+    <nav class="navlinks">
+      <a href="#why">为什么</a>
+      <a href="#hash">指纹机</a>
+      <a href="#rules">三条推论</a>
+      <a href="#salt">加盐</a>
+      <a href="#slow">慢一点</a>
+      <a href="#confuse">三件事</a>
+      <a href="#howto">怎么设</a>
+      <a href="#challenge">挑战</a>
+    </nav>
+  </div>
+</div>
+
+<header class="hero wrap">
+  <div class="kicker"><span class="num">02</span> Week 02 · How Sites Store Your Password</div>
+  <h1>你的密码，网站<em>到底怎么存的</em>？</h1>
+  <p class="lede">
+    每次注册，你都把一串只有自己知道的字符，交给了一个从没见过面的人保管。
+    那么在他的数据库里，你交出去的东西长什么样？如果那就是 <code>hunter2</code> 本身，
+    下一次数据库被人拖走，你的密码就会出现在某个论坛的截图里。
+    这期我们把「服务器那一端」翻过来看：它存的其实是一串谁也还原不了的<em>指纹</em> —— 中间有三个坑，每个坑都真实地让几亿人裸奔过。
+  </p>
+  <div class="meta">
+    <span>📖 阅读 <b>约 18 分钟</b></span>
+    <span>🧩 本周挑战 <b>3 个小任务</b></span>
+    <span>💻 代码量 <b>≤ 10 行</b></span>
+    <span>🔒 所有演示 <b>本地运行</b></span>
+  </div>
+</header>
+
+<main class="wrap">
+
+<!-- ============ 00 ============ -->
+<section id="why">
+  <div class="sec-head"><span class="sec-num">00</span><h2>先把问题问清楚</h2></div>
+
+  <p>
+    你注册一个网站，填了邮箱和密码，点「注册」。接下来在服务器那边，有一张表多了一行。
+    <strong>那一行里到底写了什么？</strong>
+  </p>
+  <p>
+    最省事的写法当然是原样记下来：<code>zhangsan@example.com | hunter2</code>。
+    代码两行就能跑通，登录时拿出来一比就行。但这么做的后果是：
+    <strong>任何能碰到这张表的人，都能直接读到你的密码</strong> —— 写这套系统的程序员、运维、外包公司、
+    以及任何一个把数据库偷走的人。
+  </p>
+  <p>
+    所以从几十年前开始，正经的做法就只有一条：
+  </p>
+
+  <div class="callout">
+    <span class="tag">本期的唯一核心句</span>
+    <p>网站<strong>不存你的密码</strong>，只存一串由密码算出来的<strong>指纹</strong>。指纹能核对、不能还原 —— 所以连网站自己也不知道你的密码是什么。</p>
+  </div>
+
+  <p>
+    这句话听着像技术细节，其实推得出很多你天天遇到的现象。这期讲完，下面这些问题你都会有确定的答案：
+  </p>
+  <ul>
+    <li>为什么几乎所有网站只能让你「重置密码」，而不能「把原密码发给你」？</li>
+    <li>客服说「我帮你查一下你原来的密码」—— 这句话为什么应该让你立刻警惕？</li>
+    <li>地址栏那个小锁（HTTPS）到底保护了什么？它保护不了什么？</li>
+    <li>为什么「每 90 天必须改密码、必须有大写和符号」这套规矩，现在被官方建议取消了？</li>
+  </ul>
+
+  <blockquote>你以为你在设密码，其实你在向一个陌生人交付一个「只能核对、不能反读」的凭证。</blockquote>
+</section>
+
+<!-- ============ 01 ============ -->
+<section id="hash">
+  <div class="sec-head"><span class="sec-num">01</span><h2>指纹机：把任意文字压成一串固定长度的乱码</h2></div>
+
+  <p>
+    承担这个任务的工具叫<strong>哈希函数</strong>（hash function）。最好的类比是一台<strong>绞肉机</strong>：
+    肉放进去，出来的是香肠；香肠永远变不回肉。
+  </p>
+  <p>
+    这台机器的规矩是固定的：<strong>同一份输入，永远得到同一份输出</strong>。
+    所以网站可以这样用 —— 注册时算一次存起来，登录时拿你的输入再算一次，两次结果一样，就说明你输入的密码一样。
+    全程它都不需要知道你输的是什么。
+  </p>
+  <p>
+    下面这台机器是<strong>真的</strong>：它跑的是 SHA-256，和 Python 的 <code>hashlib</code>、和 Linux 的
+    <code>sha256sum</code> 算出来的是同一串字符。你现在就可以把讲义里的密码丢进去试。
+  </p>
+
+  <div class="demo">
+    <div class="demo-top">
+      <div class="dotrow"><i></i><i></i><i></i></div>
+      <span>SHA-256 · 指纹机（纯本地，不联网）</span>
+    </div>
+    <div class="demo-body">
+      <label class="fl" for="fpIn">随便输点什么</label>
+      <input class="txt" id="fpIn" value="hunter2" maxlength="40" spellcheck="false" autocomplete="off" />
+
+      <div style="display:grid;gap:14px;margin-top:18px">
+        <div>
+          <div class="fp-label">你输的内容 → 指纹（64 个十六进制字符）</div>
+          <div class="fp-grid" id="fpA"></div>
+        </div>
+        <div>
+          <div class="fp-label">
+            末尾多打一个 <code>!</code> → 指纹
+            <span class="badge" id="fpDiffN"></span>
+          </div>
+          <div class="fp-grid" id="fpB"></div>
+        </div>
+      </div>
+      <p class="note">橙色格子 = 和上面不一样的位置。试着把最后的 <code>2</code> 删掉、或者只加一个空格，看变化有多大。</p>
+    </div>
+  </div>
+
+  <p>
+    你应该立刻注意到一件事：<strong>你只改了一个字符，下半张图几乎全变了。</strong>
+    这就是哈希的第二个脾气，它有个专门的名字叫<strong>雪崩效应</strong>（avalanche effect）——
+    输入里翻动一片雪花，输出就像雪崩一样面目全非。刚才那个演示里，64 个字符中有 60 个左右会变。
+  </p>
+
+  <h3>它必须同时满足三条</h3>
+  <div class="tbl-scroll">
+  <table>
+    <thead><tr><th>性质</th><th>人话解释</th><th>如果没有它会怎样</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><strong>定长</strong></td>
+        <td>不管输入是 1 个字符还是 1 万字，输出永远是 64 个十六进制字符（256 位）</td>
+        <td>数据库得为「有人用了一篇论文当密码」留出巨大字段</td>
+      </tr>
+      <tr>
+        <td><strong>单向</strong></td>
+        <td>能从密码算出指纹，不能从指纹倒推密码 —— 因为这是「有损压缩」，原始信息已经丢了</td>
+        <td>偷到数据库就等于偷到所有明文密码</td>
+      </tr>
+      <tr>
+        <td><strong>雪崩</strong></td>
+        <td>输入变一个字符，输出变一大半</td>
+        <td>攻击者能靠「指纹有多像」猜出你的密码大概长什么样</td>
+      </tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="callout">
+    <span class="tag">注意一个用词陷阱</span>
+    <p>很多网站写「我们采用 <strong>MD5 加密</strong>存储密码」。<strong>加密</strong>和<strong>哈希</strong>是两件事：
+    加密是<em>可逆</em>的（有钥匙就能还原），哈希是<em>不可逆</em>的。把哈希说成加密，通常说明写这句话的人不太懂，
+    或者他在（不明智地）真的用了可逆的加密 —— 那意味着公司自己就能看到你的密码。两种都不是好信号。</p>
+  </div>
+</section>
+
+<!-- ============ 02 ============ -->
+<section id="rules">
+  <div class="sec-head"><span class="sec-num">02</span><h2>顺着这三条，推出四个日常现象</h2></div>
+
+  <p>理论讲完了，现在来收利息。上面那三条性质，每一条都能解释一个你遇到过但没想明白的现象。</p>
+
+  <h3>推论一：网站没法「告诉你」原密码，只能让你重置</h3>
+  <p>
+    因为库里的指纹<strong>推不回</strong>密码。所以你点「忘记密码」时，收到的不是「您的密码是 hunter2」，
+    而是一个<strong>一次性重置链接</strong>。这不是网站小气，是它真的不知道。
+  </p>
+  <p>
+    反过来说：<strong>如果某个网站能把原密码发给你，它就是在明文存储或者可逆加密。</strong>
+    这不是方便，这是它整个安全体系已经塌了 —— 你该做的是去把这个密码在别处也改掉（因为你很可能到处用了同一个）。
+  </p>
+
+  <h3>推论二：「客服帮你查密码」是不能说的谎</h3>
+  <p>
+    同一个道理。真正的客服后台最多能看到「这个账号存在」「最近登录时间」「已绑定手机」，
+    看不到密码。任何声称能看到密码的系统，都把用户密码以一种可还原的形式存着了。
+  </p>
+
+  <h3>推论三：正因为它算不出你的密码，所以它可以安全地「比一比」</h3>
+  <p>
+    网站想提醒你「这个密码已经在公开泄露库里出现过」，怎么办？它可以只发你指纹的<strong>一小段</strong>去查，
+    对方回答「以这段开头的指纹有这些」，然后你在本地比对。<strong>全程对方不知道完整指纹，更不知道密码。</strong>
+    这就是 <a href="https://haveibeenpwned.com/Passwords" target="_blank" rel="noopener">Have I Been Pwned</a> 查密码时用的方法（叫 k-匿名）。
+    你可以现在就去试 —— 它是安全的，也是我这周挑战里的第一个任务。
+  </p>
+
+  <h3>推论四：从库里看不出你的密码有多长</h3>
+  <p>
+    因为定长。一个用 8 位密码的人和一个用 40 位密码的人，指纹都是 64 个字符。
+    这是个很实在的好处：泄露时攻击者不知道谁的密码值得优先硬啃。
+  </p>
+
+  <div class="callout warn">
+    <span class="tag">所以「指纹」这个词要拆开看</span>
+    <p>指纹相似 = 密码相同；指纹不同 = 密码一定不同。它唯一能泄露的信息，就是「两个账号是不是同一个密码」。
+    这也是为什么你在同一个网站改密码时，系统会拦你「新密码不能和旧密码相同」—— 它只要比一下指纹就知道。</p>
+  </div>
+</section>
+
+<!-- ============ 03 加盐 ============ -->
+<section id="salt">
+  <div class="sec-head"><span class="sec-num">03</span><h2>第一个坑：只存指纹，等于白干</h2></div>
+
+  <p>
+    假设某个网站做对了上一节：只存指纹。它安全了吗？<strong>没有。</strong>因为指纹有一个致命的特点：
+    <strong>同一个密码，指纹永远一模一样。</strong>
+  </p>
+  <p>
+    这意味着攻击者根本不需要「破解」任何东西。他只要提前算好一张巨大的对照表 ——
+    <em>常见密码 → 对应的指纹</em>，几亿行 —— 然后把偷来的指纹往里一扔，对上的那一行就写着明文。
+    这张表叫<strong>彩虹表</strong>。而"常见密码"的分布极度集中：全球每年泄露的密码统计里，前十名永远是
+    <code>123456</code>、<code>password</code>、<code>qwerty</code> 这些。也就是说，<strong>偷来一千万条指纹，几秒钟就能还原出其中几百万条</strong>。
+  </p>
+  <p>
+    更糟的是第二个问题：<strong>能一次破一片</strong>。如果一百万个用户都用 <code>123456</code>，
+    他们的指纹全都一样，破解一条等于破解一百万个。
+  </p>
+
+  <h3>解药：给每个人撒一把不同的盐</h3>
+  <p>
+    做法简单到有点好笑：注册的时候，随机生成一小段字符（比如 16 个十六进制的乱码），叫<strong>盐</strong>（salt）。
+    算指纹的时候<strong>先拼上盐</strong>：算的不是 <code>密码</code> 的指纹，而是 <code>盐 + 密码</code> 的指纹。
+    然后把<strong>盐和指纹一起明文存进数据库</strong>。
+  </p>
+
+  <div class="formula"><span class="cm"># 两种存法的区别，就一行</span>
+不加盐： 存  <span class="hl">sha256( 密码 )</span>              <span class="cm">← 同一密码，全球指纹都一样</span>
+加盐：   存  <span class="hl">盐</span>  +  <span class="hl">sha256( 盐 + 密码 )</span>       <span class="cm">← 同一密码，每个账号指纹都不同</span>
+
+登录时： 拿出来 → 用库里的盐重算一次 → 和库里的指纹比 → 一样就放行</div>
+
+  <p>下面左边是「没加盐」的写法，右边是「加盐」的写法，同一个密码同时走一遍：</p>
+
+  <div class="demo">
+    <div class="demo-top">
+      <div class="dotrow"><i></i><i></i><i></i></div>
+      <span>SALT · 加盐前后对照</span>
+    </div>
+    <div class="demo-body">
+      <label class="fl" for="saltIn">同一个密码，注册两个账号</label>
+      <input class="txt" id="saltIn" value="iloveyou123" maxlength="30" spellcheck="false" autocomplete="off" />
+
+      <div class="col2">
+        <div class="panel bad">
+          <div class="panel-t">✗ 没加盐（教科书反面例子）</div>
+          <div class="kv"><b>数据库里存的</b><span id="h1">…</span></div>
+          <p class="verdict" id="hitBox">…</p>
+          <div class="rbt" id="rbt"></div>
+        </div>
+        <div class="panel good">
+          <div class="panel-t">✓ 加盐（正确做法）</div>
+          <div class="kv"><b>存的盐</b><span id="saltShow">…</span></div>
+          <div class="kv" style="margin-top:6px"><b>存的指纹</b><span id="h2">…</span></div>
+          <p class="verdict safe" style="margin-top:10px">
+            同一个密码，每次注册指纹都完全不同 →<br />攻击者必须<strong>一个账号一个账号单独啃</strong>。
+          </p>
+          <button class="pill" id="btnResalt" style="margin-top:10px">换个盐，再注册一次 ↻</button>
+        </div>
+      </div>
+      <p class="note">左栏那张小表只有 6 行。真实的彩虹表有几亿行，你的密码只要在「全球最常见的 100 万个密码」里，就等于没设。</p>
+    </div>
+  </div>
+
+  <p>
+    盐为什么有用？因为<strong>盐不需要保密</strong>。它的作用不是「藏起来」，而是<strong>打散</strong>：
+    让每个账号的指纹都独一无二，从而让你提前算好的表<strong>一次性全部作废</strong>。
+    攻击者面对一千万条指纹，只能一条一条单独试，成本从「算一次」变成「算一千万次」。
+  </p>
+
+  <div class="callout danger">
+    <span class="tag">但是，盐救不了弱密码</span>
+    <p>这句话很重要，很多人被「加盐」这个词骗了。<strong>如果你的密码是 <code>123456</code>，加了盐也只是让攻击者多花几毫秒</strong> ——
+    他试着把 <code>123456</code> 拼上你的盐算一遍，一比对，中了。盐防的是「批量」和「查表」，防不了「你的密码本身太好猜」。
+    防弱密码是另一套机制（第 06 节讲的那几条），别指望盐代劳。</p>
+  </div>
+</section>
+
+<!-- ============ 04 慢哈希 ============ -->
+<section id="slow">
+  <div class="sec-head"><span class="sec-num">04</span><h2>第二个坑：指纹算得太快了</h2></div>
+
+  <p>
+    现在攻击者没法查表了，只能老老实实一个个试。那他试得有多快？
+  </p>
+  <p>
+    SHA-256 的设计目标是<strong>快</strong> —— 它本来是用来校验文件完整性的，工程师花了大力气让它一秒能算几十亿次。
+    这对存密码来说正好是灾难：一块高端显卡每秒能试<strong>几十亿到上百亿</strong>个候选密码。
+  </p>
+  <p>
+    算一笔账你就懂了。<strong>8 位小写字母</strong>一共有 26⁸ ≈ 2088 亿种组合，听着很多吧？
+    在这个速度下，<strong>几分钟就试完了</strong>。
+  </p>
+
+  <h3>解药：故意把它做慢</h3>
+  <p>
+    于是有人反着来：既然攻击者的唯一武器是「快」，那我们就发明<strong>专门用来慢的哈希</strong>。
+    这类函数（最常用的是 <strong>bcrypt</strong>，新的还有 scrypt 和 argon2）算一次要 <strong>0.05 ~ 0.5 秒</strong>，
+    而且「慢多少」是可以调的 —— 电脑变快了，就把参数调高一档，让它永远慢在人类能忍、机器受不了的区间。
+  </p>
+
+  <div class="tbl-scroll">
+  <table>
+    <thead><tr><th></th><th class="num">SHA-256</th><th class="num">bcrypt（成本 12）</th></tr></thead>
+    <tbody>
+      <tr><td>算一次的时间</td><td class="num">约 0.00000003 秒</td><td class="num">约 0.25 秒</td></tr>
+      <tr><td>你登录时的感受</td><td class="num">毫无感觉</td><td class="num">毫无感觉</td></tr>
+      <tr><td>攻击者一天能试</td><td class="num">约 8.6 万亿次</td><td class="num">约 35 万次</td></tr>
+      <tr><td>设计目标</td><td class="num">尽快算完</td><td class="num">尽量算不完</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <p>
+    看最后两行：同一台机器，攻击速度差了<strong>两千五百万倍</strong>。而对正常用户来说，两者都是「输完密码，页面跳一下」——
+    你根本察觉不到 0.25 秒。这就是设计者的巧思：<strong>把成本全部转移给攻击者</strong>。
+  </p>
+
+  <h3>那到底多长的密码算够？拖一下看看</h3>
+  <p>
+    下面这个小工具按「每秒一百亿次猜测」（一块高端显卡的量级）来估算。
+    拖动滑块改长度，点上面的按钮改字符集，看指数怎么变：
+  </p>
+
+  <div class="demo">
+    <div class="demo-top">
+      <div class="dotrow"><i></i><i></i><i></i></div>
+      <span>CRACK TIME · 每秒一百亿次</span>
+    </div>
+    <div class="demo-body">
+      <div class="pills" id="csPills">
+        <button class="pill" data-n="10">纯数字（10 个）</button>
+        <button class="pill active" data-n="26">小写字母（26）</button>
+        <button class="pill" data-n="36">小写 + 数字（36）</button>
+        <button class="pill" data-n="62">大小写 + 数字（62）</button>
+        <button class="pill" data-n="94">再加符号（94）</button>
+      </div>
+      <div class="range-row">
+        <span class="lbl">长度</span>
+        <input type="range" id="lenRange" min="4" max="20" step="1" value="8" />
+        <span class="lbl" id="lenVal" style="min-width:38px;text-align:right">8 位</span>
+      </div>
+      <div class="bigtime">
+        <div class="bt-top">全部试完需要</div>
+        <div class="bt-main" id="crackMain">…</div>
+        <div class="bt-sub" id="crackSub">…</div>
+      </div>
+      <p class="note">
+        ⚠️ 这个估算假设密码是<strong>完全随机</strong>抽出来的。人挑的密码从来不是随机的 ——
+        带名字、生日、<code>5201314</code>、键盘上一横排，实际会被快上好几个数量级。所以这个数字是「最好情况」，不是你的真实情况。
+      </p>
+    </div>
+  </div>
+
+  <p>
+    拖几下你会发现一件事：<strong>长度的影响是乘法级的，字符集的影响是加法级的。</strong>
+    每多一位，可能性乘以字符集大小；而把字符集从 26 扩到 62，只是让基数大了一点。
+    这就是为什么现在的建议是「<strong>先把长度堆够，再谈花哨</strong>」。
+  </p>
+
+  <div class="callout">
+    <span class="tag">一个反直觉的对比</span>
+    <p><code>P@ssw0rd!</code> 看起来复杂（有大写、有符号、有数字），但它只是 <code>password</code> 的一种常见变形 ——
+    所有破解字典里都排在前几页，<strong>真实破解时间是 0 秒</strong>。
+    而 <code>咖啡凉了才想起减肥</code> 看着像一句废话，却不在任何英文词典里，长度 11，
+    中文句子的组合空间大到无法枚举 —— <strong>它比前者强几十个数量级，而且你好记。</strong></p>
+  </div>
+</section>
+
+<!-- ============ 05 三件事 ============ -->
+<section id="confuse">
+  <div class="sec-head"><span class="sec-num">05</span><h2>把三件常被混为一谈的事分开</h2></div>
+
+  <p>
+    讲到这里，很多人会把三个东西搅在一起：HTTPS、哈希、加密。它们解决的是<strong>完全不同</strong>的问题，
+    分清楚了，你看安全新闻就不会被人牵着走。
+  </p>
+
+  <div class="tbl-scroll">
+  <table>
+    <thead><tr><th>机制</th><th>保护哪一段</th><th>防谁</th><th>能还原吗</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><strong>HTTPS</strong>（地址栏的小锁）</td>
+        <td>你的浏览器 → 网站服务器，这一段<strong>路上</strong></td>
+        <td>同一个 WiFi 下的陌生人、运营商、蹭网的路由器</td>
+        <td>不涉及 —— 它只是把包裹封起来</td>
+      </tr>
+      <tr>
+        <td><strong>哈希 + 盐 + 慢哈希</strong></td>
+        <td>网站服务器<strong>内部</strong>，数据库里</td>
+        <td>偷走数据库的人、内部员工</td>
+        <td><strong>不能</strong>（这就是全部意义）</td>
+      </tr>
+      <tr>
+        <td><strong>加密</strong>（对称/非对称）</td>
+        <td>任何需要<strong>以后还能读出来</strong>的数据</td>
+        <td>没有钥匙的人</td>
+        <td><strong>能</strong>，有钥匙就行</td>
+      </tr>
+    </tbody>
+  </table>
+  </div>
+
+  <p>
+    看清楚这张表，你就能拆掉两个很常见的误解：
+  </p>
+
+  <h3>误解一：「有绿锁，说明这网站靠谱」</h3>
+  <p>
+    小锁只保证<strong>你和它之间的对话没被第三方偷听</strong>。它<strong>完全不保证</strong>这家公司怎么存你的密码、
+    会不会把你的数据卖给第三方、跑路时会不会带走你的信息。
+    一个钓鱼网站同样可以申请到证书、挂上小锁 —— 它保护的是「骗子和你之间的通信」，一点没帮到你。
+  </p>
+
+  <h3>误解二：「密码是加密存储的，很安全」</h3>
+  <p>
+    如果真的是「加密」（可逆），那公司自己就能解出来 —— 也就意味着任何能进后台的人都能解出来，
+    任何拿到钥匙的人都能解出来。<strong>密码不该是能被还原的东西</strong>，这也是为什么第 01 节强调「哈希不是加密」。
+  </p>
+
+  <div class="callout">
+    <span class="tag">所以「忘记密码」的邮件里没有密码</span>
+    <p>它给的是一串带时效的随机链接。点开 → 验证是你本人 → 让你<strong>设一个新的</strong>。
+    整条链路里，密码从头到尾只在你自己的设备上存在过一瞬间，服务器从来没有「知道」过它。</p>
+  </div>
+</section>
+
+<!-- ============ 06 怎么设 ============ -->
+<section id="howto">
+  <div class="sec-head"><span class="sec-num">06</span><h2>那你到底该怎么设密码</h2></div>
+
+  <p>
+    前面讲的都是网站的责任。但有一半的风险在你手上 —— 因为<strong>大部分账号被盗，不是因为网站被黑，而是因为同一个密码在另一个被黑的网站上用过</strong>。
+    这叫<strong>撞库</strong>：攻击者拿着一份泄露的「邮箱 + 密码」清单，去几百个网站挨个试。
+    你在一家小论坛用过和大厂邮箱一样的密码，那家论坛被拖库的那天，你的邮箱就危险了。
+  </p>
+
+  <h3>四条真正有用的建议</h3>
+  <div class="tbl-scroll">
+  <table>
+    <thead><tr><th>做法</th><th>为什么它有用</th></tr></thead>
+    <tbody>
+      <tr><td><strong>1. 长度优先</strong><br />12 位以上，最好是一句话</td><td>长度是唯一按指数增长的因素。一句话天然又长又好记。</td></tr>
+      <tr><td><strong>2. 一个都不重复</strong><br />尤其是邮箱、银行、微信</td><td>撞库的全部威力都建立在「复用」上。不重复，一次泄露就只损失一个站。</td></tr>
+      <tr><td><strong>3. 用密码管理器</strong><br />浏览器自带 / 1Password / Bitwarden</td><td>「记不住」不是你的问题，是设计问题。让机器记随机长串，你只需记住一个主密码。</td></tr>
+      <tr><td><strong>4. 开二次验证</strong><br />短信验证码也算，验证器 App 更好</td><td>这是唯一能在「密码已经泄露」之后还救你的东西。<strong>优先级高于换更复杂的密码。</strong></td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="callout warn">
+    <span class="tag">两条已经过时的建议，可以不用听了</span>
+    <p>
+      ① <strong>「必须含大写、数字、符号」</strong> —— 它逼出来的结果就是 <code>Password1!</code> 这种人人都会想到的变形，
+      反而更好猜。美国国家标准与技术研究院（NIST）现在的建议是：<strong>不强制组合规则，只要求足够长</strong>。<br />
+      ② <strong>「每 90 天必须换密码」</strong> —— 它逼出来的结果是 <code>abc123</code> → <code>abc124</code>。
+      现在的建议是：<strong>只在怀疑泄露时换</strong>。
+    </p>
+  </div>
+
+  <h3>关于「浏览器帮我记住密码」</h3>
+  <p>
+    这个其实<strong>比你想的安全</strong>：浏览器存的是用你系统账户钥匙加密过的本地文件，别人拿到你电脑也需要你的登录密码才能解开。
+    真正的风险不是「浏览器记住」，而是<strong>你把同一个密码手动输进了所有网站</strong>。
+    相比之下，用浏览器或密码管理器生成一堆互不相同的随机串，安全性高得多 —— 唯一的代价是你要信任这台设备，所以电脑别裸奔、手机记得锁屏。
+  </p>
+
+  <h3>三道自测</h3>
+  <details>
+    <summary>网站被拖库了，但它用了「加盐 + bcrypt」，攻击者拿到了什么？</summary>
+    <div class="ans"><p>一堆「盐 + 指纹」。他不能直接读出密码，也没法查表（盐打散了）。他能做的只有一件事：针对每个账号单独硬猜，而 bcrypt 让每次猜都要 0.25 秒。如果密码本身够强，几万年也猜不出来；如果密码是 <code>123456</code>，那第一批就中。所以「加盐 + 慢哈希」的意义是：<strong>把损失从「全军覆没」缩小到「弱密码的那部分人」</strong>，而不是零损失。</p></div>
+  </details>
+  <details>
+    <summary>为什么同一个密码，在 A 网站泄露了，B 网站也可能跟着完蛋？</summary>
+    <div class="ans"><p>因为密码复用。A 站被拖库后，攻击者拿到「你的邮箱 + 明文密码」（A 站可能没做好），直接拿去 B 站登录试试 —— 这叫撞库，是账号被盗最主要的原因，比「黑客专门针对你」常见得多。这也是为什么「不重复」比「复杂」更重要。</p></div>
+  </details>
+  <details>
+    <summary>我开了短信二次验证，密码是不是可以随便设了？</summary>
+    <div class="ans"><p>不行，但优先级确实变了。二次验证能挡住「别人拿你泄露的密码来登录」，却挡不住「别人用你的密码做别的事」以及「短信被劫持」。正确顺序是：<strong>先开二次验证（收益最大），再换成长且不重复的密码</strong>。两件事都做，成本也就十分钟。</p></div>
+  </details>
+</section>
+
+<!-- ============ 07 挑战 ============ -->
+<section id="challenge">
+  <div class="sec-head"><span class="sec-num">07</span><h2>本周挑战：给自己做一次密码体检</h2></div>
+
+  <p>
+    这周的挑战仍然不考算法。三级任选，<strong>做完任意一个都算赢</strong>。
+    唯一的硬规矩：<strong>任何地方都不要写出你的真实密码</strong> —— 写下「结构」（几位、什么类型、用在几类网站）就够了。
+  </p>
+
+  <div class="levels">
+    <div class="level">
+      <div class="lv">Lv 1 · 观察 · 15 分钟 · 零代码</div>
+      <h4>审计你自己的密码习惯</h4>
+      <ul>
+        <li>打开 <a href="https://haveibeenpwned.com/" target="_blank" rel="noopener">haveibeenpwned.com</a>，输入你的<strong>邮箱</strong>，看它出现在几次泄露里、分别是哪些站。</li>
+        <li>再进「Passwords」页，输入一个你<strong>已经不用了</strong>的旧密码，看它是否在泄露库里（这个页面用 k-匿名，只上传指纹的前 5 位）。</li>
+        <li>数一数：你有几个重要账号（邮箱、微信、银行、学校）？它们当中有几个<strong>用的是同一个密码</strong>？</li>
+        <li>写三句话结论：「我有 N 个账号，其中 M 个密码相同；我的邮箱在 K 次泄露里出现过。」</li>
+      </ul>
+    </div>
+    <div class="level l2">
+      <div class="lv">Lv 2 · 动手 · 20 分钟 · 代码 10 行</div>
+      <h4>亲手验证「加盐」和「雪崩」</h4>
+      <ul>
+        <li>把仓库里的 <a href="salt_demo.py">week-02/salt_demo.py</a> 存到本地，运行 <code>python salt_demo.py</code>（不需要装任何东西）。</li>
+        <li>看输出里的第一段：同一个密码注册两次，两个指纹完全不同 —— 这就是盐。</li>
+        <li>改脚本里 <code>pw</code> 的值，换成你自己的某个密码的<strong>变体</strong>（比如把最后一个字母改掉），再跑一次，看 64 个字符变了几个。</li>
+        <li>进阶：用网页版的指纹机算一次，再用脚本算一次，确认两边的结果<strong>一模一样</strong> —— 这说明它们用的是同一台「绞肉机」。</li>
+      </ul>
+    </div>
+    <div class="level l3">
+      <div class="lv">Lv 3 · 探索 · 半小时</div>
+      <h4>做一次「家庭网络安全员」</h4>
+      <ul>
+        <li>帮家里一位长辈检查：他/她的常用密码是不是「名字拼音 + 生日」？在几个地方重复？</li>
+        <li>用第 04 节的估算器算一下那个密码的「最好情况」破解时间，告诉对方这个数字（这比讲道理有用得多）。</li>
+        <li>帮他改成一个好记的<strong>中文短句</strong>，并开启二次验证。记录下来：改之前 / 改之后的关键差别是什么。</li>
+      </ul>
+    </div>
+  </div>
+
+  <h3>Lv2 的核心代码（就这几行）</h3>
+
+  <div class="formula"><span class="cm"># 从 salt_demo.py 里摘出来的骨架 —— 网站真正干的事</span>
+<span class="hl">import</span> hashlib, secrets
+
+<span class="hl">def</span> fingerprint(text):
+    <span class="hl">return</span> hashlib.sha256(text.encode()).hexdigest()   <span class="cm"># 64 个字符的指纹</span>
+
+salt = secrets.token_hex(8)                                <span class="cm"># 每个账号一份随机盐</span>
+stored = fingerprint(salt + <span class="hl">"你的密码"</span>)                  <span class="cm"># 库里存的是这个</span>
+<span class="cm"># 登录时：fingerprint(salt + 用户输入) == stored  →  放行</span></div>
+
+  <p style="font-size:15px;color:var(--muted)">
+    真实项目请把 <code>sha256</code> 换成 <code>bcrypt</code> 或 <code>argon2</code> —— 原因见第 04 节。
+  </p>
+
+  <div class="callout">
+    <span class="tag">怎么交作业</span>
+    <p>去仓库<strong>开一个 Issue</strong>，标题写「Week02 打卡」，正文贴你的三句话 / 两条指纹对比 / 长辈体检记。
+    记住那条硬规矩：<strong>永远不要贴真实密码</strong>，只贴结构和指纹（指纹是安全的，它反推不出密码）。</p>
+  </div>
+</section>
+
+<!-- ============ 08 小结 ============ -->
+<section id="takeaway">
+  <div class="sec-head"><span class="sec-num">08</span><h2>带走三句话</h2></div>
+
+  <ol>
+    <li><strong>网站存的是指纹，不是密码。</strong>所以它只能让你重置、不能把原密码发给你 —— 谁能发给你，谁的库就是明文。</li>
+    <li><strong>光有指纹还不够，得加盐、还得慢。</strong>盐让每个人的指纹独一无二（防查表），慢哈希让硬猜变得不划算（防暴力）。但这两样都救不了「密码本身太好猜」。</li>
+    <li><strong>你的风险一半在自己手上。</strong>不重复 &gt; 够长 &gt; 花哨，二次验证 &gt; 一切。花十分钟开二次验证，比把密码从 8 位改成 12 位有用得多。</li>
+  </ol>
+
+  <div class="callout">
+    <span class="tag">下期预告</span>
+    <p>Week 03 候选：<strong>SSD 为什么快</strong>（拆开闪存，看它怎么在没有活动部件的情况下记住 0 和 1）、
+    <strong>程序为什么会崩</strong>（从「容器满了」讲起，看懂最常见的几种报错）、
+    <strong>一个网址从输入到出现，中间发生了什么</strong>（DNS、服务器、CDN 的分工）。<br />想听哪个，去仓库 Issue 投票。</p>
+  </div>
+</section>
+
+</main>
+
+<footer class="wrap">
+  <div class="foot-row">
+    <div>
+      <div style="color:var(--ink);font-weight:600;margin-bottom:4px">每周一个计算机小知识 · Week 02</div>
+      <div>爱好者版 · 密码存储 + 加盐 + 慢哈希 + 密码体检</div>
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:10px">
+      <a class="next" href="../week-01/index.html"><span style="color:var(--muted)">←</span><span>上期：代码怎么跑起来</span></a>
+      <a class="next" href="https://github.com/kinghihido/cs-weekly" target="_blank" rel="noopener">
+        <span>GitHub 源码与挑战</span><span style="color:var(--accent)">→</span>
+      </a>
+    </div>
+  </div>
+  <div style="margin-top:26px;padding-top:18px;border-top:1px solid var(--line);font-size:12.5px">
+    本站内容可自由转载，署名即可 · 所有交互演示均在浏览器本地运行，不上传任何数据
+  </div>
+</footer>
+
+<script>
+(function(){
+  "use strict";
+  var $ = function(id){ return document.getElementById(id); };
+
+  /* ============ 真实 SHA-256（与 Python hashlib 逐字节一致） ============ */
+  var K = [
+    0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,
+    0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,
+    0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,
+    0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,
+    0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,
+    0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,
+    0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,
+    0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2
+  ];
+  function rotr(x, n){ return (x >>> n) | (x << (32 - n)); }
+  function utf8(str){
+    if (typeof TextEncoder !== "undefined") return new TextEncoder().encode(str);
+    var out = [], s = unescape(encodeURIComponent(str));
+    for (var i = 0; i < s.length; i++) out.push(s.charCodeAt(i));
+    return new Uint8Array(out);
+  }
+  function sha256(str){
+    var bytes = utf8(str), l = bytes.length;
+    var total = Math.ceil((l + 9) / 64) * 64;
+    var buf = new Uint8Array(total);
+    buf.set(bytes);
+    buf[l] = 0x80;
+    var dv = new DataView(buf.buffer);
+    var bits = l * 8;
+    dv.setUint32(total - 8, Math.floor(bits / 4294967296));
+    dv.setUint32(total - 4, bits >>> 0);
+
+    var h0=0x6a09e667, h1=0xbb67ae85, h2=0x3c6ef372, h3=0xa54ff53a,
+        h4=0x510e527f, h5=0x9b05688c, h6=0x1f83d9ab, h7=0x5be0cd19;
+    var w = new Uint32Array(64);
+    for (var off = 0; off < total; off += 64){
+      for (var i = 0; i < 16; i++) w[i] = dv.getUint32(off + i * 4);
+      for (i = 16; i < 64; i++){
+        var s0 = rotr(w[i-15],7) ^ rotr(w[i-15],18) ^ (w[i-15] >>> 3);
+        var s1 = rotr(w[i-2],17) ^ rotr(w[i-2],19) ^ (w[i-2] >>> 10);
+        w[i] = (w[i-16] + s0 + w[i-7] + s1) | 0;
+      }
+      var a=h0,b=h1,c=h2,d=h3,e=h4,f=h5,g=h6,hh=h7;
+      for (i = 0; i < 64; i++){
+        var S1 = rotr(e,6) ^ rotr(e,11) ^ rotr(e,25);
+        var ch = (e & f) ^ (~e & g);
+        var t1 = (hh + S1 + ch + K[i] + w[i]) | 0;
+        var S0 = rotr(a,2) ^ rotr(a,13) ^ rotr(a,22);
+        var maj = (a & b) ^ (a & c) ^ (b & c);
+        var t2 = (S0 + maj) | 0;
+        hh=g; g=f; f=e; e=(d+t1)|0; d=c; c=b; b=a; a=(t1+t2)|0;
+      }
+      h0=(h0+a)|0; h1=(h1+b)|0; h2=(h2+c)|0; h3=(h3+d)|0;
+      h4=(h4+e)|0; h5=(h5+f)|0; h6=(h6+g)|0; h7=(h7+hh)|0;
+    }
+    var hs = [h0,h1,h2,h3,h4,h5,h6,h7], out = "";
+    for (i = 0; i < 8; i++) out += ("00000000" + (hs[i] >>> 0).toString(16)).slice(-8);
+    return out;
+  }
+
+  function randHex(nbytes){
+    var arr = new Uint8Array(nbytes);
+    if (window.crypto && window.crypto.getRandomValues){
+      window.crypto.getRandomValues(arr);
+    } else {
+      for (var i = 0; i < nbytes; i++) arr[i] = Math.floor(Math.random() * 256);
+    }
+    var s = "";
+    for (var j = 0; j < arr.length; j++) s += ("0" + arr[j].toString(16)).slice(-2);
+    return s;
+  }
+
+  /* ============ W1 指纹机 ============ */
+  function drawGrid(box, hash, base){
+    box.innerHTML = "";
+    var diff = 0;
+    for (var i = 0; i < 64; i++){
+      var span = document.createElement("span");
+      span.className = "fp-cell";
+      span.textContent = hash.charAt(i);
+      if (base && base.charAt(i) !== hash.charAt(i)){
+        span.className += " diff";
+        diff++;
+      }
+      box.appendChild(span);
+    }
+    return diff;
+  }
+  var fpIn = $("fpIn");
+  function refreshFp(){
+    var v = fpIn.value;
+    var a = sha256(v), b = sha256(v + "!");
+    drawGrid($("fpA"), a, null);
+    var n = drawGrid($("fpB"), b, a);
+    $("fpDiffN").textContent = n + " / 64 个字符变了";
+  }
+  fpIn.addEventListener("input", refreshFp);
+  refreshFp();
+
+  /* ============ W2 加盐对照 ============ */
+  var COMMON = ["123456", "password", "qwerty", "iloveyou123", "5201314", "abc123"];
+  var COMMON_HASH = {};
+  for (var ci = 0; ci < COMMON.length; ci++) COMMON_HASH[sha256(COMMON[ci])] = COMMON[ci];
+
+  var salt = randHex(8);
+  function refreshSalt(){
+    var pw = $("saltIn").value;
+    var plain = sha256(pw);
+    $("h1").textContent = plain;
+
+    var hit = COMMON_HASH[plain];
+    var hitBox = $("hitBox");
+    if (hit){
+      hitBox.className = "verdict hit";
+      hitBox.textContent = "⚠ 这张小表里就有它 —— 攻击者 0 秒还原出「" + hit + "」，而且你的一百万个同伴指纹全都一样。";
+    } else {
+      hitBox.className = "verdict";
+      hitBox.textContent = "这 6 行的表里没找到。但真实彩虹表有几亿行 —— 换一个更常见的密码试试。";
+    }
+
+    var rows = "";
+    for (var i = 0; i < COMMON.length; i++){
+      var h = sha256(COMMON[i]);
+      var on = (h === plain) ? " on" : "";
+      rows += '<div class="row' + on + '"><span>' + COMMON[i] + "</span><span>" + h.slice(0, 10) + "…</span></div>";
+    }
+    $("rbt").innerHTML = '<div style="margin-bottom:4px">彩虹表（节选）</div>' + rows;
+
+    $("saltShow").textContent = salt;
+    $("h2").textContent = sha256(salt + pw);
+  }
+  $("saltIn").addEventListener("input", refreshSalt);
+  $("btnResalt").addEventListener("click", function(){
+    salt = randHex(8);
+    refreshSalt();
+  });
+  refreshSalt();
+
+  /* ============ W3 破解时间 ============ */
+  var charset = 26;
+  var RATE = 1e10;
+  var GLYPH = ["⁰","¹","²","³","⁴","⁵","⁶","⁷","⁸","⁹"];
+
+  function sci(n){
+    if (n < 1e4) return n.toLocaleString("en-US", { maximumFractionDigits: 0 });
+    var e = Math.floor(Math.log(n) / Math.LN10);
+    var m = n / Math.pow(10, e);
+    var es = String(e).split("").map(function(ch){ return GLYPH[+ch]; }).join("");
+    return m.toFixed(2) + " × 10" + es;
+  }
+  function fmtTime(sec){
+    if (sec < 1) return "不到 1 秒";
+    if (sec < 60) return Math.round(sec) + " 秒";
+    if (sec < 3600) return (sec / 60).toFixed(1).replace(".0", "") + " 分钟";
+    if (sec < 86400) return (sec / 3600).toFixed(1).replace(".0", "") + " 小时";
+    var y = sec / 31557600;
+    if (y < 1) return (sec / 86400).toFixed(1).replace(".0", "") + " 天";
+    if (y < 1e4) return Math.round(y).toLocaleString("en-US") + " 年";
+    if (y < 1e8) return (y / 1e4).toFixed(1) + " 万年";
+    if (y < 1.38e10) return (y / 1e8).toFixed(1) + " 亿年";
+    return "宇宙年龄（138 亿年）的 " + Math.round(y / 1.38e10) + " 倍";
+  }
+
+  var csPills = $("csPills").querySelectorAll(".pill");
+  function refreshCrack(){
+    var len = parseInt($("lenRange").value, 10);
+    $("lenVal").textContent = len + " 位";
+    var combos = Math.pow(charset, len);
+    var sec = combos / RATE;
+    var bits = len * Math.log(charset) / Math.LN2;
+
+    var main = $("crackMain");
+    main.textContent = fmtTime(sec);
+    main.className = "bt-main " + (sec < 86400 * 365 ? "weak" : "ok");
+
+    $("crackSub").textContent =
+      "组合数 " + sci(combos) + "　·　信息量 " + Math.round(bits) + " bit　·　" +
+      len + " 位 × " + charset + " 种字符";
+  }
+  for (var pi = 0; pi < csPills.length; pi++){
+    (function(btn){
+      btn.addEventListener("click", function(){
+        for (var k = 0; k < csPills.length; k++) csPills[k].classList.remove("active");
+        btn.classList.add("active");
+        charset = parseInt(btn.getAttribute("data-n"), 10);
+        refreshCrack();
+      });
+    })(csPills[pi]);
+  }
+  $("lenRange").addEventListener("input", refreshCrack);
+  refreshCrack();
+})();
+</script>
+</body>
+</html>

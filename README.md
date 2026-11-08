@@ -25,8 +25,9 @@
 | --- | --- | --- | --- | --- |
 | 01 | 你的代码是怎么跑起来的 | CPU / 内存 / 硬盘怎么分工，一行 `print` 走完六站 | [week-01](week-01/README.md) | [Lv1-3](week-01/CHALLENGE.md) |
 | 02 | 你的密码，网站到底怎么存的 | 指纹（哈希）、加盐、慢哈希，以及为什么网站只能让你「重置密码」 | [week-02](week-02/README.md) | [Lv1-3](week-02/CHALLENGE.md) |
+| 03 | 一个网址，从按下回车到看见页面 | DNS / 握手 / HTTP / CDN / 渲染，把打开网页的 0.4 秒拆成五段 | [week-03](week-03/README.md) | [Lv1-3](week-03/CHALLENGE.md) |
 
-后续候选：SSD 为什么快、程序为什么会崩、一个网址从输入到出现中间发生了什么。
+后续候选：SSD 为什么快、程序为什么会崩、操作系统到底在干什么。
 想听哪个，开 Issue 投票。
 
 ## 快速开始
@@ -39,26 +40,29 @@ cd cs-weekly
 本期讲义有两种读法：
 
 1. **直接看网页**：双击 `index.html`（内含三个可点击的小演示，不需要联网、不需要服务器，所有计算在浏览器本地完成）。
-2. **看 Markdown 版**：[`week-02/README.md`](week-02/README.md)。
+2. **看 Markdown 版**：[`week-03/README.md`](week-03/README.md)。
 
-## 本期速览（Week 02）
+## 本期速览（Week 03）
 
 | 概念 | 一句话记住 |
 | --- | --- |
-| 哈希（指纹） | 单向绞肉机：肉进去香肠出来，香肠变不回肉；改一个字，指纹面目全非 |
-| 加盐 | 每个账号一把随机盐，让「同一密码」的指纹各不相同，预计算表全部作废 |
-| 慢哈希（bcrypt） | 故意算得慢（约 0.25 秒/次），把成本全部转移给攻击者，你却毫无感觉 |
-| HTTPS vs 哈希 | 小锁管「路上没被偷听」，哈希管「库里被拖走也还原不了」，两码事 |
-| 你该做的 | 不重复 > 够长 > 花哨；二次验证的优先级高于一切 |
+| DNS | 名字是给人用的稳定入口，IP 是给机器用的临时坐标；路上每一层都在缓存，所以「生效慢」是在等缓存过期 |
+| 握手 | TCP 一个来回建路，TLS 一个回车上锁；慢的大头是「来回几次」，不是「数据多少」 |
+| 光速极限 | 光纤 RTT 20ms ≈ 服务器在 2000 公里外；跨太平洋一个来回 100ms，谁也修不了 |
+| HTTP | 4 开头是你的问题，5 开头是它的问题；「登录状态」只是一张每次都要出示的 Cookie |
+| CDN | 省的是「跨城跨洲」，省不掉「最后一公里」；效果全看命中率 |
+| 渲染 | HTML 只是施工图，CSS/JS/图是之后分批取的材料；普通 `<script>` 会挡住解析 |
+| 缓存 | 缓存不是让事情变快，是让大部分事情根本不用发生 |
 
-**核心句（唯一需要记的一行）**：网站不存你的密码，只存指纹 —— 所以它只能让你重置，不能把原密码发给你。谁能发给你，谁的库就是明文。
+**核心句（唯一需要记的一行）**：慢的大头往往不是「数据有多少」，而是「要来回几次」 —— 所以白屏要分段查，不要整体骂。
 
 本地跑参考实现（零依赖）：
 
 ```bash
-cd week-02
-python salt_demo.py        # 亲眼看：同一密码两次注册，指纹完全不同
-python test_salt_demo.py   # 9 个行为测试
+cd week-03
+python latency_budget.py                # 亲眼看：一次访问的时间账单
+python latency_budget.py --net satellite --cdn
+python test_latency_budget.py           # 8 个行为测试
 ```
 
 ## 参与
@@ -78,10 +82,17 @@ cs-weekly/
 │   ├── CHALLENGE.md        # 本周挑战
 │   └── submissions/        # 挑战提交（可选）
 ├── week-02/
+│   ├── index.html          # 第 02 期交互讲义（存档）
 │   ├── README.md           # 第 02 期讲义（密码是怎么存的）
-│   ├── CHALLENGE.md        # 本周挑战
-│   ├── salt_demo.py        # 参考实现（零依赖）
-│   ├── test_salt_demo.py   # 行为测试
+│   ├── CHALLENGE.md
+│   ├── salt_demo.py
+│   ├── test_salt_demo.py
+│   └── submissions/
+├── week-03/
+│   ├── README.md           # 第 03 期讲义（网址从输入到出现）
+│   ├── CHALLENGE.md        # 本周挑战（网速分段体检）
+│   ├── latency_budget.py   # 时间账单参考实现（零依赖）
+│   ├── test_latency_budget.py
 │   └── submissions/
 ├── archive/
 │   └── bloom-filter/       # 旧版第 01 期（布隆过滤器，技术向，留档）
